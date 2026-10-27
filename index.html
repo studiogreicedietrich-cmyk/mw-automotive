@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sistema da Oficina</title>
+  <style>
+[hidden] { display: none !important; }
+:root {
+  --bg: #f4f6f8; --card: #ffffff; --texto: #1c2430; --suave: #6b7685; --borda: #e1e5ea;
+  --primaria: #d9480f; --primaria-esc: #b53b0a;
+  --lateral: #1c2430; --lateral-texto: #c9d1db;
+  --ok: #2b8a3e; --erro: #c92a2a; --raio: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #11151b; --card: #1a2029; --texto: #e8ecf1; --suave: #93a0b1; --borda: #2a323d; --lateral: #0b0e12; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--texto); line-height: 1.5; }
+h1, h2 { margin: 0; }
+a { color: var(--primaria); }
+.suave { color: var(--suave); }
+.centro { text-align: center; }
+
+/* Botões e formulários */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border: 0; border-radius: 8px; background: var(--primaria); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.btn:hover { background: var(--primaria-esc); }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+.btn-bloco { width: 100%; }
+.btn-sec { background: transparent; color: var(--lateral-texto); border: 1px solid #3a4452; }
+.btn-sec:hover { background: #2a323d; }
+label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: .9rem; }
+input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--borda); border-radius: 8px; background: var(--card); color: var(--texto); font: inherit; }
+input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--primaria); }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--primaria); outline-offset: 1px; }
+
+/* Login */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+.login-card { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio); padding: 32px 28px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+.login-card form { text-align: left; }
+.login-marca { font-size: 2.4rem; }
+.login-card h1 { font-size: 1.5rem; margin: 4px 0; }
+.msg-erro { color: var(--erro); min-height: 1.4em; margin: 12px 0 8px; font-size: .9rem; }
+
+/* Estrutura do app */
+.app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+.lateral { background: var(--lateral); color: var(--lateral-texto); padding: 18px 14px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 14px; }
+.marca { display: flex; align-items: center; gap: 10px; color: #fff; font-size: 1.1rem; padding: 4px 8px 10px; }
+.marca span { font-size: 1.5rem; }
+#menu { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; }
+#menu a { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 8px; color: var(--lateral-texto); text-decoration: none; font-weight: 500; }
+#menu a:hover { background: #2a323d; color: #fff; }
+#menu a.ativo { background: var(--primaria); color: #fff; }
+.usuario { border-top: 1px solid #2f3945; padding-top: 14px; display: flex; flex-direction: column; gap: 2px; }
+.usuario #usuario-nome { color: #fff; font-weight: 600; }
+.usuario small { margin-bottom: 10px; }
+.principal { min-width: 0; }
+.topo { display: flex; align-items: center; gap: 12px; padding: 18px 28px; border-bottom: 1px solid var(--borda); background: var(--card); }
+.topo h1 { font-size: 1.3rem; }
+.btn-menu { display: none; background: none; border: 0; font-size: 1.6rem; color: var(--texto); cursor: pointer; padding: 0 6px; }
+.conteudo { padding: 28px; max-width: 1100px; }
+.fundo { display: none; }
+
+/* Componentes */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 18px; }
+.card-num { display: flex; flex-direction: column; gap: 4px; background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio); padding: 20px; text-decoration: none; color: var(--suave); transition: transform .12s, border-color .12s; }
+.card-num:hover { transform: translateY(-2px); border-color: var(--primaria); }
+.card-num strong { font-size: 2.2rem; color: var(--texto); line-height: 1.1; }
+.card-icone { font-size: 1.5rem; }
+.aviso { background: var(--card); border: 1px solid var(--borda); border-left: 4px solid var(--primaria); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px; }
+.aviso.erro { border-left-color: var(--erro); }
+.vazio { text-align: center; padding: 60px 20px; }
+.vazio-icone { font-size: 3rem; }
+.tabela-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio); }
+.tabela { width: 100%; border-collapse: collapse; min-width: 520px; }
+.tabela th, .tabela td { padding: 10px 12px; border-bottom: 1px solid var(--borda); text-align: left; }
+.tabela th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); }
+.tabela tr:last-child td { border-bottom: 0; }
+.tabela td.centro, .tabela th.centro { text-align: center; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translate(-50%, 20px); background: var(--ok); color: #fff; padding: 12px 20px; border-radius: 8px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
+.toast.erro { background: var(--erro); }
+.toast.visivel { opacity: 1; transform: translate(-50%, 0); }
+
+/* Celular */
+@media (max-width: 800px) {
+  .app { grid-template-columns: 1fr; }
+  .lateral { position: fixed; left: -270px; top: 0; width: 250px; z-index: 30; transition: left .2s; }
+  .lateral.aberta { left: 0; }
+  .fundo.visivel { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; }
+  .btn-menu { display: block; }
+  .topo, .conteudo { padding-left: 16px; padding-right: 16px; }
+}
+
+  </style>
+</head>
+<body>
+  <main class="login-wrap" id="tela-login" hidden>
+    <div class="login-card">
+      <div class="login-marca">🔧</div>
+      <h1 id="nome-oficina-login">Oficina</h1>
+      <p class="suave">Entre com seu e-mail e senha</p>
+      <form id="form-login">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" autocomplete="username" required>
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" autocomplete="current-password" required>
+        <p id="msg" class="msg-erro" role="alert"></p>
+        <button id="btn-entrar" class="btn btn-bloco" type="submit">Entrar</button>
+      </form>
+    </div>
+  </main>
+
+  <div class="app" id="tela-app" hidden>
+    <aside class="lateral" id="lateral">
+      <div class="marca"><span>🔧</span><strong id="nome-oficina"></strong></div>
+      <nav id="menu" aria-label="Menu principal"></nav>
+      <div class="usuario">
+        <div id="usuario-nome"></div>
+        <small id="usuario-papel"></small>
+        <button id="btn-sair" class="btn btn-sec btn-bloco" type="button">Sair</button>
+      </div>
+    </aside>
+    <div class="fundo" id="fundo"></div>
+    <main class="principal">
+      <header class="topo">
+        <button id="btn-menu" class="btn-menu" type="button" aria-label="Abrir menu">☰</button>
+        <h1 id="titulo-pagina"></h1>
+      </header>
+      <section id="conteudo" class="conteudo">Carregando…</section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+
+  <!-- ============ CONFIGURAÇÃO: edite só este bloco ============ -->
+  <script>
+// =====================================================
+// CONFIGURAÇÃO - edite apenas este arquivo
+// =====================================================
+window.CONFIG = {
+  NOME_OFICINA: "MW AUTOMOTIVE",
+
+  // Supabase > Project Settings > API
+  SUPABASE_URL: "https://sobkzxdqclxewvlzssfn.supabase.co/",
+  SUPABASE_ANON_KEY: "sb_publishable_k1VPmPfzmx5lw0yQsMXz4w_kyY3Csst"
+};
+
+  </script>
+
+  <!-- ============ SISTEMA (não precisa mexer daqui para baixo) ============ -->
+  <script>
+// Cria a conexão com o Supabase (usada por todas as telas como "sb")
+(function () {
+  const { createClient } = window.supabase;
+  window.sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+})();
+
+// Funções de apoio usadas em todo o sistema
+window.MODULOS = {};
+
+window.esc = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+window.brl = (n) =>
+  Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+window.dataBR = (d) => {
+  if (!d) return "";
+  const txt = String(d);
+  const dt = new Date(txt.length === 10 ? txt + "T00:00:00" : txt);
+  return dt.toLocaleDateString("pt-BR");
+};
+
+window.toast = (msg, tipo = "ok") => {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = "toast " + tipo + " visivel";
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => (el.className = "toast"), 3000);
+};
+
+window.configuradoOk = () =>
+  CONFIG.SUPABASE_URL && !CONFIG.SUPABASE_URL.startsWith("COLE_") &&
+  CONFIG.SUPABASE_ANON_KEY && !CONFIG.SUPABASE_ANON_KEY.startsWith("COLE_");
+
+// ---------- TELA DE LOGIN ----------
+function mostrarLogin(aviso) {
+  document.getElementById("tela-app").hidden = true;
+  document.getElementById("tela-login").hidden = false;
+  document.title = CONFIG.NOME_OFICINA + " - Entrar";
+  document.getElementById("nome-oficina-login").textContent = CONFIG.NOME_OFICINA;
+  const msg = document.getElementById("msg");
+  if (!configuradoOk()) {
+    msg.textContent = "Falta configurar a URL e a chave do Supabase no topo do arquivo index.html.";
+    document.getElementById("btn-entrar").disabled = true;
+  } else if (aviso) {
+    msg.textContent = aviso;
+  }
+}
+
+function traduzirErro(m) {
+  if (/invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
+  if (/email not confirmed/i.test(m)) return "E-mail ainda não confirmado.";
+  return "Não foi possível entrar: " + m;
+}
+
+document.getElementById("form-login").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("btn-entrar");
+  const msg = document.getElementById("msg");
+  btn.disabled = true; btn.textContent = "Entrando..."; msg.textContent = "";
+  const { error } = await sb.auth.signInWithPassword({
+    email: document.getElementById("email").value.trim(),
+    password: document.getElementById("senha").value,
+  });
+  if (error) {
+    msg.textContent = traduzirErro(error.message);
+    btn.disabled = false; btn.textContent = "Entrar";
+    return;
+  }
+  location.reload();
+});
+
+// Painel inicial: números rápidos da oficina
+MODULOS.painel = {
+  async render(el, ctx) {
+    const primeiroNome = (ctx.perfil.nome || "").split(" ")[0];
+    const daqui30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
+    const indicadores = [
+      { rotulo: "OS em aberto", icone: "📋", rota: "os",
+        consulta: () => sb.from("ordens_servico").select("id", { count: "exact", head: true })
+          .in("status", ["orcamento", "aprovado", "em_andamento", "aguardando_peca"]) },
+      { rotulo: "Prontas para entrega", icone: "✅", rota: "os",
+        consulta: () => sb.from("ordens_servico").select("id", { count: "exact", head: true })
+          .eq("status", "concluido") },
+      { rotulo: "Peças com estoque baixo", icone: "📦", rota: "estoque",
+        consulta: () => sb.from("estoque_baixo").select("id", { count: "exact", head: true }) },
+      { rotulo: "Revisões nos próximos 30 dias", icone: "🔔", rota: "lembretes",
+        consulta: () => sb.from("lembretes_revisao").select("id", { count: "exact", head: true })
+          .eq("status", "pendente").lte("data_prevista", daqui30) },
+    ].filter((i) => ctx.rotasPermitidas.includes(i.rota));
+
+    el.innerHTML = `
+      <p class="suave">Olá, <strong>${esc(primeiroNome)}</strong>! Este é o resumo da oficina.</p>
+      <div class="cards">
+        ${indicadores.map((i, n) => `
+          <a class="card-num" href="#/${i.rota}">
+            <span class="card-icone">${i.icone}</span>
+            <strong id="ind-${n}">…</strong>
+            <span>${esc(i.rotulo)}</span>
+          </a>`).join("")}
+      </div>`;
+
+    await Promise.all(indicadores.map(async (i, n) => {
+      const alvo = el.querySelector("#ind-" + n);
+      try {
+        const { count, error } = await i.consulta();
+        if (error) throw error;
+        alvo.textContent = count ?? 0;
+      } catch (e) {
+        console.error(i.rotulo, e);
+        alvo.textContent = "—";
+      }
+    }));
+  },
+};
+
+// Equipe: o dono define o papel de cada pessoa e ativa/desativa acessos
+MODULOS.equipe = {
+  async render(el, ctx) {
+    const { data, error } = await sb.from("perfis").select("*").order("nome");
+    if (error) throw error;
+
+    const papeis = [["dono", "Dono"], ["atendente", "Atendente"], ["mecanico", "Mecânico"], ["contador", "Contador"]];
+    const linhas = data.map((p) => {
+      const eu = p.id === ctx.usuario.id;
+      return `<tr>
+        <td><input type="text" value="${esc(p.nome)}" data-id="${p.id}" data-campo="nome"></td>
+        <td><select data-id="${p.id}" data-campo="papel" ${eu ? "disabled" : ""}>
+          ${papeis.map(([v, r]) => `<option value="${v}" ${p.papel === v ? "selected" : ""}>${r}</option>`).join("")}
+        </select></td>
+        <td class="centro"><input type="checkbox" data-id="${p.id}" data-campo="ativo" ${p.ativo ? "checked" : ""} ${eu ? "disabled" : ""}></td>
+      </tr>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div class="aviso">Para adicionar uma pessoa: no Supabase, vá em <strong>Authentication → Users → Add user</strong>.
+      Ela aparecerá aqui como <em>Atendente</em> e você ajusta o papel.</div>
+      <div class="tabela-wrap" id="tabela-equipe">
+        <table class="tabela">
+          <thead><tr><th>Nome</th><th>Papel</th><th class="centro">Ativo</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>`;
+
+    el.querySelector("#tabela-equipe").addEventListener("change", async (e) => {
+      const t = e.target;
+      if (!t.dataset.id) return;
+      const valor = t.type === "checkbox" ? t.checked : t.value.trim();
+      if (t.dataset.campo === "nome" && !valor) { toast("O nome não pode ficar vazio.", "erro"); return; }
+      const { error } = await sb.from("perfis").update({ [t.dataset.campo]: valor }).eq("id", t.dataset.id);
+      if (error) { toast("Não foi possível salvar: " + error.message, "erro"); return; }
+      toast("Salvo!");
+    });
+  },
+};
+
+// Núcleo do sistema: login obrigatório, menu por perfil e navegação entre telas
+const MENU = [
+  { id: "painel",     rotulo: "Painel",             icone: "📊", papeis: ["dono", "atendente", "mecanico", "contador"] },
+  { id: "clientes",   rotulo: "Clientes",           icone: "👥", papeis: ["dono", "atendente"] },
+  { id: "veiculos",   rotulo: "Veículos",           icone: "🚗", papeis: ["dono", "atendente"] },
+  { id: "os",         rotulo: "Ordens de Serviço",  icone: "📋", papeis: ["dono", "atendente", "mecanico", "contador"] },
+  { id: "estoque",    rotulo: "Estoque",            icone: "📦", papeis: ["dono", "atendente", "mecanico"] },
+  { id: "financeiro", rotulo: "Financeiro",         icone: "💰", papeis: ["dono", "atendente", "contador"] },
+  { id: "lembretes",  rotulo: "Lembretes",          icone: "🔔", papeis: ["dono", "atendente"] },
+  { id: "equipe",     rotulo: "Equipe",             icone: "🛠️", papeis: ["dono"] },
+];
+
+// Em qual etapa do projeto cada tela será construída
+const ETAPAS = { clientes: 3, veiculos: 3, os: 4, estoque: 5, financeiro: 6, lembretes: 7 };
+
+const NOMES_PAPEL = { dono: "Dono", mecanico: "Mecânico", atendente: "Atendente", contador: "Contador" };
+
+let menuPermitido = [];
+
+function rotuloDe(item, papel) {
+  return item.id === "os" && papel === "mecanico" ? "Minhas OS" : item.rotulo;
+}
+
+function desenharMenu(papel) {
+  menuPermitido = MENU.filter((m) => m.papeis.includes(papel));
+  document.getElementById("menu").innerHTML = menuPermitido
+    .map((m) => `<a href="#/${m.id}" data-id="${m.id}"><span>${m.icone}</span>${esc(rotuloDe(m, papel))}</a>`)
+    .join("");
+}
+
+function fecharMenuMobile() {
+  document.getElementById("lateral").classList.remove("aberta");
+  document.getElementById("fundo").classList.remove("visivel");
+}
+
+async function navegar() {
+  const pedido = location.hash.replace("#/", "") || "painel";
+  const item = menuPermitido.find((m) => m.id === pedido);
+  if (!item) { location.hash = "#/" + menuPermitido[0].id; return; }
+
+  const papel = window.CTX.perfil.papel;
+  document.querySelectorAll("#menu a").forEach((a) =>
+    a.classList.toggle("ativo", a.dataset.id === item.id));
+  document.getElementById("titulo-pagina").textContent = rotuloDe(item, papel);
+  document.title = rotuloDe(item, papel) + " - " + CONFIG.NOME_OFICINA;
+  fecharMenuMobile();
+
+  const el = document.getElementById("conteudo");
+  el.innerHTML = '<p class="suave">Carregando…</p>';
+  const modulo = window.MODULOS[item.id];
+  try {
+    if (modulo) {
+      await modulo.render(el, window.CTX);
+    } else {
+      el.innerHTML = `<div class="vazio"><div class="vazio-icone">🚧</div>
+        <h2>${esc(rotuloDe(item, papel))}</h2>
+        <p class="suave">Esta tela será construída na Etapa ${ETAPAS[item.id] ?? "?"}.</p></div>`;
+    }
+  } catch (e) {
+    console.error(e);
+    el.innerHTML = `<div class="aviso erro">Erro ao carregar esta tela: ${esc(e.message || e)}</div>`;
+  }
+}
+
+(async function iniciar() {
+  if (!configuradoOk()) { mostrarLogin(); return; }
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { mostrarLogin(); return; }
+
+  const { data: perfil, error } = await sb.from("perfis").select("*").eq("id", session.user.id).maybeSingle();
+  if (error || !perfil || !perfil.ativo) {
+    await sb.auth.signOut();
+    mostrarLogin("Seu acesso não está ativo. Fale com o responsável pela oficina.");
+    return;
+  }
+
+  window.CTX = { sessao: session, usuario: session.user, perfil };
+  document.getElementById("tela-login").hidden = true;
+  document.getElementById("tela-app").hidden = false;
+  document.getElementById("nome-oficina").textContent = CONFIG.NOME_OFICINA;
+  document.getElementById("usuario-nome").textContent = perfil.nome;
+  document.getElementById("usuario-papel").textContent = NOMES_PAPEL[perfil.papel] || perfil.papel;
+  desenharMenu(perfil.papel);
+  window.CTX.rotasPermitidas = menuPermitido.map((m) => m.id);
+
+  document.getElementById("btn-sair").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
+  document.getElementById("btn-menu").addEventListener("click", () => {
+    document.getElementById("lateral").classList.add("aberta");
+    document.getElementById("fundo").classList.add("visivel");
+  });
+  document.getElementById("fundo").addEventListener("click", fecharMenuMobile);
+  sb.auth.onAuthStateChange((evento) => { if (evento === "SIGNED_OUT") location.reload(); });
+
+  window.addEventListener("hashchange", navegar);
+  navegar();
+})();
+
+  </script>
+</body>
+</html>
