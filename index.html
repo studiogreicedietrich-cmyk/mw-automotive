@@ -135,6 +135,8 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 @media(max-width:860px){.grade-form{grid-template-columns:1fr}.modal-fundo{padding:0}.modal{border-radius:0;min-height:100vh}.modal-corpo{padding:6px 14px 24px}}
 
 .btn-whats{background:linear-gradient(135deg,#25d366,#128c4a);color:#04200f;box-shadow:0 6px 18px rgba(37,211,102,.25)}
+.estq-topo{margin:14px 0 4px}.estq-topo strong{display:block;font-size:2rem;line-height:1.2;color:var(--amarelo)}
+.pos{color:var(--ok)}.neg{color:var(--erro)}.alerta{border-color:var(--erro)!important}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -401,7 +403,7 @@ window.modal = (titulo, corpo, largo) => {
   return d;
 };
 const erroAmigavel = (e) =>
-  e.code === "23505" ? "Já existe um cadastro com esses dados (ex.: placa repetida)."
+  e.code === "23505" ? "Já existe um cadastro com esses dados (ex.: placa ou código repetido)."
   : e.code === "23503" ? "Não é possível excluir: há registros ligados a este."
   : "Não foi possível salvar: " + e.message;
 
@@ -598,7 +600,12 @@ MODULOS.os = {
         const total = sub - Number($("#f_desc").value || 0);
         $("#t-sub").textContent = brl(sub); $("#t-total").textContent = brl(total);
         if ($("#t-saldo")) $("#t-saldo").textContent = brl(total - Number(o.pago || 0));
-        m.querySelectorAll("tr[data-i] .tot").forEach((td) => { const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * i.valor_unitario); });
+        m.querySelectorAll("tr[data-i] .tot").forEach((td) => {
+          const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * i.valor_unitario);
+          const pr = i.produto_id && produtos.find((x) => x.id === i.produto_id), q = td.parentNode.querySelector("[data-c=quantidade]");
+          q.classList.toggle("alerta", !!pr && i.quantidade > pr.qtd_estoque);
+          q.title = pr && i.quantidade > pr.qtd_estoque ? `Estoque insuficiente: só há ${pr.qtd_estoque}` : "";
+        });
       };
       const linhasItens = () => {
         $("#itens").innerHTML = itens.length ? itens.map((it, i) => `<tr data-i="${i}"><td>${it.tipo === "servico" ? "Serviço" : "Peça"}</td>
@@ -792,6 +799,135 @@ function linkWhats(d) {
   const tel = num.length >= 10 ? (num.length <= 11 ? "55" + num : num) : "";
   return { tel, url: `https://wa.me/${tel}?text=${encodeURIComponent(msgWhats(d))}` };
 }
+
+// ===================== ESTOQUE DE PEÇAS =====================
+const UNIDADES = [["un", "Unidade"], ["l", "Litro"], ["kg", "Quilo"], ["m", "Metro"], ["par", "Par"], ["jogo", "Jogo"], ["kit", "Kit"]];
+const TIPOS_MOV = { entrada: "Entrada", saida: "Saída", ajuste: "Ajuste" };
+const nBR = (x) => Number(x ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+const CAMPOS_PRODUTO = [
+  { k: "codigo", t: "Código / SKU" }, { k: "nome", t: "Nome da peça", req: true },
+  { k: "categoria", t: "Categoria" }, { k: "unidade", t: "Unidade", tipo: "select", opcoes: UNIDADES },
+  { k: "qtd_minima", t: "Estoque mínimo (gera alerta)", tipo: "number" }, { k: "custo", t: "Preço de custo (R$)", tipo: "number" },
+  { k: "preco_venda", t: "Preço de venda (R$)", tipo: "number" }, { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
+];
+
+MODULOS.estoque = {
+  async render(el, ctx) {
+    const papel = ctx.perfil.papel, editar = ["dono", "atendente"].includes(papel);
+    let linhas = [], filtro = "todos";
+    const baixo = (p) => p.ativo && Number(p.qtd_estoque) <= Number(p.qtd_minima);
+    const carregar = async () => {
+      const { data, error } = await sb.from("produtos").select("*").order("nome");
+      if (error) throw error;
+      linhas = data;
+    };
+    await carregar();
+
+    el.innerHTML = `<div class="kpis" id="kp"></div>
+      <div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar por nome, código ou categoria…">${editar ? '<button class="btn" id="novo" type="button">+ Nova peça</button>' : ""}</div>
+      <div class="chips">${[["todos", "Ativas"], ["baixo", "Estoque baixo"], ["inativos", "Inativas"]].map(([k, t]) => `<button class="chip ${k === filtro ? "ativo" : ""}" data-f="${k}" type="button">${t}</button>`).join("")}</div>
+      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Código</th><th>Peça</th><th>Estoque</th><th>Mínimo</th><th>Custo</th><th>Venda</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
+    const corpo = el.querySelector("#corpo");
+
+    const desenhar = () => {
+      const ativos = linhas.filter((p) => p.ativo);
+      const kp = (t, v, cor, ic, din) => `<div class="kpi" style="--cor:${cor}"><div class="kpi-icone">${svg(ic)}</div><strong style="font-size:${din ? "1.6rem" : "2.5rem"}">${v}</strong><span>${t}</span></div>`;
+      el.querySelector("#kp").innerHTML =
+        kp("Peças ativas", ativos.length, "#fcd34a", "estoque") + kp("Com estoque baixo", ativos.filter(baixo).length, "#ff9f45", "lembretes") +
+        kp("Valor em estoque (custo)", brl(ativos.reduce((s, p) => s + p.qtd_estoque * p.custo, 0)), "#5cc8ff", "financeiro", true) +
+        kp("Valor de venda potencial", brl(ativos.reduce((s, p) => s + p.qtd_estoque * p.preco_venda, 0)), "#46d39a", "check", true);
+      const q = el.querySelector("#busca").value.toLowerCase().trim();
+      const vis = linhas.filter((p) => (filtro === "inativos" ? !p.ativo : p.ativo) && (filtro !== "baixo" || baixo(p)) &&
+        (!q || `${p.nome} ${p.codigo} ${p.categoria}`.toLowerCase().includes(q)));
+      corpo.innerHTML = vis.length ? vis.map((p) => `<tr class="${editar ? "clicavel" : ""}" data-id="${p.id}"><td>${esc(p.codigo || "")}</td>
+        <td><strong>${esc(p.nome)}</strong><br><span class="suave">${esc(p.categoria || "")}</span></td>
+        <td>${nBR(p.qtd_estoque)} ${esc(p.unidade)} ${baixo(p) ? '<span class="badge" style="--cor:#ff6b5e">Baixo</span>' : ""}</td>
+        <td>${nBR(p.qtd_minima)}</td><td>${brl(p.custo)}</td><td>${brl(p.preco_venda)}</td></tr>`).join("")
+        : '<tr><td colspan="6" class="suave centro">Nenhuma peça por aqui.</td></tr>';
+    };
+
+    const abrir = async (p) => {
+      const novo = !p; let cur = p;
+      const m = modal(novo ? "Nova peça" : p.nome, `
+        ${novo ? "" : '<div class="estq-topo"><span class="suave">Em estoque agora</span><strong id="estq-atual"></strong></div>'}
+        <div class="grade-form">${CAMPOS_PRODUTO.map((c) => campoHtml(c, novo ? { unidade: "un", ativo: true }[c.k] : p[c.k])).join("")}
+          ${novo ? campoHtml({ k: "qtd_ini", t: "Quantidade inicial em estoque", tipo: "number" }, "") : ""}</div>
+        <div class="acoes">${!novo && papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir</button>' : ""}<span style="flex:1"></span>
+          <button class="btn btn-sec" id="cancelar" type="button">Fechar</button><button class="btn" id="salvar" type="button">Salvar</button></div>
+        ${novo ? "" : `<h4>Movimentar estoque</h4>
+          <div class="grade-form">
+            <div class="campo"><label>Tipo</label><select id="mv_tipo"><option value="entrada">Entrada (compra / reposição)</option><option value="saida">Saída manual (perda / uso interno)</option><option value="ajuste">Ajuste de inventário (contagem)</option></select></div>
+            <div class="campo"><label id="mv_rot">Quantidade</label><input id="mv_qtd" type="number" min="0"></div>
+            <div class="campo larga"><label>Motivo / observação</label><input id="mv_mot" placeholder="Ex.: compra na loja X, nota 1234"></div></div>
+          <div class="acoes"><button class="btn" id="mv_ok" type="button">Registrar movimentação</button></div>
+          <h4>Últimas movimentações</h4><div id="hist"></div>`}`);
+      const $ = (s) => m.querySelector(s);
+      $("#cancelar").onclick = m.fechar;
+      const mostrarAtual = () => { if ($("#estq-atual")) $("#estq-atual").textContent = `${nBR(cur.qtd_estoque)} ${cur.unidade}`; };
+      mostrarAtual();
+
+      $("#salvar").onclick = async () => {
+        const dados = lerCampos(CAMPOS_PRODUTO.concat(novo ? [{ k: "qtd_ini", tipo: "number" }] : []), m);
+        if (!dados.nome) { toast("Preencha o nome da peça.", "erro"); return; }
+        const ini = dados.qtd_ini; delete dados.qtd_ini;
+        dados.ativo = dados.ativo !== "false"; dados.unidade = dados.unidade || "un";
+        ["qtd_minima", "custo", "preco_venda"].forEach((k) => (dados[k] = dados[k] ?? 0));
+        const btn = $("#salvar"); btn.disabled = true;
+        try {
+          if (novo) {
+            const r = await sb.from("produtos").insert(dados).select("id").single(); if (r.error) throw r.error;
+            if (ini > 0) { const mv = await sb.from("movimentacoes_estoque").insert({ produto_id: r.data.id, tipo: "entrada", quantidade: ini, motivo: "Estoque inicial" }); if (mv.error) throw mv.error; }
+          } else { const r = await sb.from("produtos").update(dados).eq("id", p.id); if (r.error) throw r.error; }
+          toast("Peça salva!"); m.fechar(); await carregar(); desenhar();
+        } catch (e) { console.error(e); toast(erroAmigavel(e), "erro"); btn.disabled = false; }
+      };
+      if (novo) return;
+
+      const ap = $("#apagar");
+      if (ap) ap.onclick = async () => {
+        if (!confirm("Excluir esta peça? Se ela já foi usada, prefira marcar como Inativa.")) return;
+        const { error } = await sb.from("produtos").delete().eq("id", p.id);
+        if (error) { toast(error.code === "23503" ? "Esta peça já tem movimentações ou OS. Marque como Inativa." : erroAmigavel(error), "erro"); return; }
+        toast("Peça excluída."); m.fechar(); await carregar(); desenhar();
+      };
+      $("#mv_tipo").onchange = (e) => ($("#mv_rot").textContent = e.target.value === "ajuste" ? "Quantidade correta em estoque" : "Quantidade");
+      const hist = async () => {
+        const { data } = await sb.from("movimentacoes_estoque").select("*, ordens_servico(numero)").eq("produto_id", p.id).order("created_at", { ascending: false }).limit(15);
+        $("#hist").innerHTML = data?.length ? `<div class="tabela-wrap"><table class="tabela" style="min-width:0"><tbody>${data.map((x) => {
+          const s = x.tipo === "saida" ? -x.quantidade : x.quantidade;
+          return `<tr><td>${new Date(x.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td><td>${TIPOS_MOV[x.tipo]}</td>
+            <td class="${s >= 0 ? "pos" : "neg"}"><b>${s > 0 ? "+" : ""}${nBR(s)}</b></td><td class="suave">${esc(x.motivo || "")}${x.ordens_servico ? ` (OS #${x.ordens_servico.numero})` : ""}</td></tr>`;
+        }).join("")}</tbody></table></div>` : '<p class="suave">Nenhuma movimentação ainda.</p>';
+      };
+      hist();
+      $("#mv_ok").onclick = async () => {
+        const tipo = $("#mv_tipo").value, q = Number($("#mv_qtd").value), vazio = $("#mv_qtd").value === "";
+        let quantidade = q;
+        if (vazio || q < 0) { toast("Informe a quantidade.", "erro"); return; }
+        if (tipo !== "ajuste" && q <= 0) { toast("A quantidade precisa ser maior que zero.", "erro"); return; }
+        if (tipo === "saida" && q > cur.qtd_estoque) { toast("A saída é maior que o estoque atual.", "erro"); return; }
+        if (tipo === "ajuste") { quantidade = q - Number(cur.qtd_estoque); if (quantidade === 0) { toast("O estoque já está com essa quantidade.", "erro"); return; } }
+        const btn = $("#mv_ok"); btn.disabled = true;
+        const { error } = await sb.from("movimentacoes_estoque").insert({ produto_id: p.id, tipo, quantidade, motivo: $("#mv_mot").value.trim() || null });
+        btn.disabled = false;
+        if (error) { toast(erroAmigavel(error), "erro"); return; }
+        const r = await sb.from("produtos").select("*").eq("id", p.id).single();
+        if (r.data) cur = r.data;
+        $("#mv_qtd").value = ""; $("#mv_mot").value = ""; mostrarAtual(); toast("Movimentação registrada!");
+        await hist(); await carregar(); desenhar();
+      };
+    };
+
+    el.querySelector("#busca").oninput = desenhar;
+    el.querySelector(".chips").onclick = (e) => {
+      const b = e.target.closest("[data-f]"); if (!b) return;
+      filtro = b.dataset.f; el.querySelectorAll(".chip").forEach((c) => c.classList.toggle("ativo", c === b)); desenhar();
+    };
+    corpo.onclick = (e) => { const tr = e.target.closest("tr[data-id]"); if (tr && editar) abrir(linhas.find((l) => l.id === tr.dataset.id)); };
+    if (editar) el.querySelector("#novo").onclick = () => abrir(null);
+    desenhar();
+  },
+};
 
 // Equipe: o dono define o papel de cada pessoa e ativa/desativa acessos
 MODULOS.equipe = {
