@@ -134,6 +134,7 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .totais .geral{font-size:1.35rem;font-weight:800;color:var(--amarelo);border-top:1px solid var(--borda);padding-top:8px}
 @media(max-width:860px){.grade-form{grid-template-columns:1fr}.modal-fundo{padding:0}.modal{border-radius:0;min-height:100vh}.modal-corpo{padding:6px 14px 24px}}
 
+.btn-whats{background:linear-gradient(135deg,#25d366,#128c4a);color:#04200f;box-shadow:0 6px 18px rgba(37,211,102,.25)}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -220,6 +221,11 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 window.CONFIG = {
   NOME_OFICINA: "MW Automotive",
   SLOGAN: "Mecânica • Elétrica • Ar-condicionado",
+
+  // Dados que aparecem no cabeçalho do PDF (deixe "" o que não quiser mostrar)
+  EMPRESA: { CNPJ: "", TELEFONE: "", EMAIL: "", ENDERECO: "" },
+  // Texto no rodapé do orçamento/OS (revise com as regras da sua oficina)
+  TERMOS: "Valores sujeitos a alteração caso sejam encontrados problemas adicionais, mediante aprovação do cliente. A garantia cobre os serviços e peças descritos, nos prazos informados.",
 
   // Supabase > Project Settings > API
   SUPABASE_URL: "https://sobkzxdqclxewvlzssfn.supabase.co/",
@@ -580,6 +586,7 @@ MODULOS.os = {
         <div class="totais"><div><span>Subtotal</span><span id="t-sub"></span></div><div class="geral"><span>Total</span><span id="t-total"></span></div>
           ${os ? `<div><span>Pago</span><span>${brl(o.pago)}</span></div><div><span>Saldo</span><span id="t-saldo"></span></div>` : ""}</div>
         <div class="acoes">${os && papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir OS</button>' : ""}<span style="flex:1"></span>
+          ${os ? '<button class="btn btn-sec" id="imprimir" type="button">PDF / Imprimir</button><button class="btn btn-whats" id="whats" type="button">WhatsApp</button>' : ""}
           <button class="btn btn-sec" id="cancelar" type="button">Fechar</button><button class="btn" id="salvar" type="button">Salvar OS</button></div>`, true);
 
       const $ = (s) => m.querySelector(s);
@@ -624,6 +631,32 @@ MODULOS.os = {
       $("#f_desc").oninput = calc;
       $("#f_cliente").onchange = (e) => { $("#f_veiculo").innerHTML = opt(opsVeic(e.target.value), "", e.target.value ? "Selecione…" : "Selecione o cliente primeiro"); };
       $("#cancelar").onclick = m.fechar;
+      if (os) {
+        const montarDoc = async () => {
+          const [c, v] = await Promise.all([
+            sb.from("clientes").select("*").eq("id", $("#f_cliente").value).maybeSingle(),
+            sb.from("veiculos").select("*").eq("id", $("#f_veiculo").value).maybeSingle()]);
+          return { cliente: c.data || {}, veiculo: v.data || {}, itens: itens.map((i) => ({ ...i, quantidade: Number(i.quantidade), valor_unitario: Number(i.valor_unitario || 0) })),
+            mecanico: (mecs.find((x) => x.id === $("#f_mecanico").value) || {}).nome || "",
+            os: { ...o, status: $("#f_status").value, km_entrada: $("#f_km").value, validade_orcamento: $("#f_validade").value, defeito_relatado: $("#f_defeito").value,
+              diagnostico: $("#f_diag").value, observacoes: $("#f_obs").value, desconto: Number($("#f_desc").value || 0),
+              checklist: { itens: [...m.querySelectorAll(".checks input:checked")].map((x) => x.value), combustivel: $("#f_comb").value } } };
+        };
+        $("#imprimir").onclick = async () => {
+          const w = window.open("", "_blank");
+          if (!w) { toast("O navegador bloqueou a janela. Permita pop-ups para este site.", "erro"); return; }
+          try { imprimirOS(await montarDoc(), w); } catch (e) { w.close(); toast("Erro ao gerar o documento: " + e.message, "erro"); }
+        };
+        $("#whats").onclick = async () => {
+          const w = window.open("", "_blank");
+          if (!w) { toast("O navegador bloqueou a janela. Permita pop-ups para este site.", "erro"); return; }
+          try {
+            const l = linkWhats(await montarDoc());
+            if (!l.tel) toast("Cliente sem WhatsApp cadastrado. Escolha o contato manualmente.", "erro");
+            w.location.href = l.url;
+          } catch (e) { w.close(); toast("Erro ao montar a mensagem: " + e.message, "erro"); }
+        };
+      }
       linhasItens();
 
       if (papel === "contador") m.querySelectorAll("input,select,textarea,.x-linha,#add-srv,#add-prd,#salvar").forEach((x) => (x.disabled = true));
@@ -668,6 +701,97 @@ MODULOS.os = {
     desenhar();
   },
 };
+
+// ===================== DOCUMENTO DA OS (PDF/IMPRESSÃO) E WHATSAPP =====================
+function docOS(d) {
+  const { os, cliente: c, veiculo: v, itens } = d, E = CONFIG.EMPRESA || {};
+  const orc = os.status === "orcamento";
+  const titulo = (orc ? "Orçamento" : "Ordem de Serviço") + " nº " + os.numero;
+  const soma = (t) => itens.filter((i) => i.tipo === t).reduce((s, i) => s + i.quantidade * i.valor_unitario, 0);
+  const serv = soma("servico"), peca = soma("peca"), total = serv + peca - Number(os.desconto || 0);
+  const n = (x) => Number(x).toLocaleString("pt-BR");
+  const gar = itens.filter((i) => i.garantia_dias).map((i) => `${esc(i.descricao)}: ${i.garantia_dias} dias${i.garantia_km ? ` ou ${n(i.garantia_km)} km` : ""}`);
+  const chk = os.checklist || {};
+  const emp = [E.CNPJ && "CNPJ " + esc(E.CNPJ), E.TELEFONE && esc(E.TELEFONE), E.EMAIL && esc(E.EMAIL), E.ENDERECO && esc(E.ENDERECO)].filter(Boolean).join("<br>");
+  const dado = (r, t) => (t ? `<div><b>${r}:</b> ${esc(t)}</div>` : "");
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+@page{size:A4;margin:10mm}*{box-sizing:border-box}
+body{font:12px/1.45 Arial,Helvetica,sans-serif;color:#1b2424;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;background:#162020;color:#f2efe8;padding:14px 18px;border-radius:10px;border-bottom:4px solid #fcd34a}
+.top img{height:64px}.emp{text-align:right;font-size:11px;line-height:1.5}.emp strong{font-size:14px}
+.titulo{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 10px}
+.titulo h1{font-size:20px;margin:0;text-transform:uppercase;letter-spacing:.04em}
+.caixas{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.caixa{border:1px solid #cfd8d6;border-radius:8px;padding:9px 12px;margin-bottom:10px;break-inside:avoid}
+.caixa h2{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8a6d00;margin:0 0 5px}
+table{width:100%;border-collapse:collapse;margin:6px 0}
+th{background:#162020;color:#fff;font-size:10px;text-transform:uppercase;padding:6px 8px;text-align:left}
+td{padding:6px 8px;border-bottom:1px solid #e3e8e6}.d{text-align:right}
+.tot{margin:8px 0 0 auto;width:270px}.tot div{display:flex;justify-content:space-between;padding:2px 0}
+.tot .g{font-size:16px;font-weight:700;border-top:2px solid #fcd34a;padding-top:5px;margin-top:3px}
+.assin{display:flex;gap:40px;margin-top:50px;break-inside:avoid}.assin div{flex:1;border-top:1px solid #1b2424;text-align:center;padding-top:4px;font-size:11px}
+.peq{font-size:10.5px;color:#4a5856}.rod{margin-top:18px;text-align:center;font-size:10px;color:#7a8785}
+</style></head><body>
+<div class="top"><img src="${LOGO}" alt=""><div class="emp"><strong>${esc(CONFIG.NOME_OFICINA)}</strong><br>${emp}</div></div>
+<div class="titulo"><h1>${esc(titulo)}</h1><div>Entrada: <b>${dataBR(os.data_entrada)}</b>${orc && os.validade_orcamento ? ` &nbsp;|&nbsp; Válido até: <b>${dataBR(os.validade_orcamento)}</b>` : ""}</div></div>
+<div class="caixas">
+ <div class="caixa"><h2>Cliente</h2><div><b>${esc(c.nome)}</b></div>${dado("CPF/CNPJ", c.cpf_cnpj)}${dado("Telefone", c.whatsapp || c.telefone)}${dado("Endereço", c.endereco)}</div>
+ <div class="caixa"><h2>Veículo</h2><div><b>${esc([v.marca, v.modelo, v.ano].filter(Boolean).join(" "))}</b></div>${dado("Placa", v.placa)}${dado("Cor", v.cor)}${dado("KM de entrada", os.km_entrada ? n(os.km_entrada) : "")}${dado("Mecânico", d.mecanico)}</div>
+</div>
+${os.defeito_relatado || os.diagnostico ? `<div class="caixa"><h2>Atendimento</h2>${dado("Defeito relatado", os.defeito_relatado)}${dado("Diagnóstico", os.diagnostico)}</div>` : ""}
+<table><thead><tr><th>Tipo</th><th>Descrição</th><th class="d">Qtd</th><th class="d">Valor un.</th><th class="d">Total</th></tr></thead><tbody>
+${itens.length ? itens.map((i) => `<tr><td>${i.tipo === "servico" ? "Serviço" : "Peça"}</td><td>${esc(i.descricao)}</td><td class="d">${n(i.quantidade)}</td><td class="d">${brl(i.valor_unitario)}</td><td class="d">${brl(i.quantidade * i.valor_unitario)}</td></tr>`).join("") : '<tr><td colspan="5">Nenhum item lançado.</td></tr>'}
+</tbody></table>
+<div class="tot"><div><span>Serviços</span><span>${brl(serv)}</span></div><div><span>Peças</span><span>${brl(peca)}</span></div>
+${os.desconto ? `<div><span>Desconto</span><span>- ${brl(os.desconto)}</span></div>` : ""}<div class="g"><span>TOTAL</span><span>${brl(total)}</span></div>
+${os.pago > 0 ? `<div><span>Pago</span><span>${brl(os.pago)}</span></div><div><span>Saldo</span><span>${brl(total - os.pago)}</span></div>` : ""}</div>
+${gar.length ? `<div class="caixa" style="margin-top:14px"><h2>Garantia</h2><div class="peq">${gar.join("<br>")}</div></div>` : ""}
+${(chk.itens || []).length || chk.combustivel ? `<div class="caixa"><h2>Checklist de entrada</h2><div class="peq">${(chk.itens || []).map(esc).join(" • ")}${chk.combustivel ? `<br>Combustível: ${esc(chk.combustivel)}` : ""}</div></div>` : ""}
+${os.observacoes ? `<div class="caixa"><h2>Observações</h2><div class="peq">${esc(os.observacoes)}</div></div>` : ""}
+${CONFIG.TERMOS ? `<p class="peq">${esc(CONFIG.TERMOS)}</p>` : ""}
+<div class="assin">${orc ? "<div>De acordo (cliente)</div>" : "<div>Cliente</div><div>Responsável pela oficina</div>"}</div>
+<div class="rod">${esc(CONFIG.NOME_OFICINA)} • documento gerado em ${new Date().toLocaleString("pt-BR")}</div>
+</body></html>`;
+}
+
+function imprimirOS(d, w) {
+  w.document.open(); w.document.write(docOS(d)); w.document.close();
+  setTimeout(() => { w.focus(); w.print(); }, 700);
+}
+
+function msgWhats(d) {
+  const { os, cliente: c, veiculo: v, itens } = d;
+  const nome = (c.nome || "").split(" ")[0];
+  const veic = [v.marca, v.modelo].filter(Boolean).join(" ") + (v.placa ? ` (${v.placa})` : "");
+  const total = itens.reduce((s, i) => s + i.quantidade * i.valor_unitario, 0) - Number(os.desconto || 0);
+  const lista = (t) => itens.filter((i) => i.tipo === t).map((i) => `• ${i.descricao} (${Number(i.quantidade)}x) - ${brl(i.quantidade * i.valor_unitario)}`).join("\n");
+  let m = `*${CONFIG.NOME_OFICINA}*\nOlá, ${nome}! `;
+  if (os.status === "orcamento") {
+    m += `Segue o orçamento nº ${os.numero} do seu ${veic}:\n\n`;
+    if (lista("servico")) m += `*Serviços*\n${lista("servico")}\n\n`;
+    if (lista("peca")) m += `*Peças*\n${lista("peca")}\n\n`;
+    if (os.desconto) m += `Desconto: ${brl(os.desconto)}\n`;
+    m += `*Total: ${brl(total)}*\n`;
+    if (os.validade_orcamento) m += `Válido até ${dataBR(os.validade_orcamento)}.\n`;
+    m += "\nPara aprovar, é só responder esta mensagem. 👍";
+  } else if (os.status === "aprovado") m += `Orçamento nº ${os.numero} aprovado! Vamos iniciar o serviço no seu ${veic}. 🔧`;
+  else if (os.status === "em_andamento") m += `Seu ${veic} já está em atendimento (OS nº ${os.numero}). Assim que terminarmos, avisamos! 🔧`;
+  else if (os.status === "aguardando_peca") m += `O serviço no seu ${veic} está aguardando a chegada de uma peça (OS nº ${os.numero}). Avisaremos assim que chegar.`;
+  else if (os.status === "concluido") m += `Seu ${veic} está *pronto para retirada*! 🚗✅\nOS nº ${os.numero} - Total: *${brl(total)}*.`;
+  else {
+    m += `Obrigado pela preferência! Resumo da OS nº ${os.numero} do seu ${veic}: total *${brl(total)}*.`;
+    const g = itens.filter((i) => i.garantia_dias).map((i) => `• ${i.descricao}: ${i.garantia_dias} dias`);
+    if (g.length) m += `\n\n*Garantias*\n${g.join("\n")}`;
+    m += "\n\nQualquer dúvida, estamos à disposição!";
+  }
+  return m;
+}
+
+function linkWhats(d) {
+  const num = String(d.cliente.whatsapp || d.cliente.telefone || "").replace(/\D/g, "");
+  const tel = num.length >= 10 ? (num.length <= 11 ? "55" + num : num) : "";
+  return { tel, url: `https://wa.me/${tel}?text=${encodeURIComponent(msgWhats(d))}` };
+}
 
 // Equipe: o dono define o papel de cada pessoa e ativa/desativa acessos
 MODULOS.equipe = {
