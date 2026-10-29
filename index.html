@@ -72,7 +72,7 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--amarelo);bo
 .hero p{color:var(--suave)}
 .hero-tag{display:inline-block;padding:3px 12px;border-radius:99px;background:rgba(252,211,74,.14);color:var(--amarelo);font-size:.76rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
 .ico-grande{width:112px;height:112px;stroke-width:1.1;color:var(--amarelo);filter:drop-shadow(0 0 22px rgba(252,211,74,.6));animation:pulsar 2.6s ease-in-out infinite}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin:20px 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:16px;margin:20px 0}
 .kpi{position:relative;overflow:hidden;display:flex;flex-direction:column;padding:20px;border-radius:var(--raio);background:var(--sup);border:1px solid var(--borda);text-decoration:none;color:var(--suave);transition:.2s;animation:subir .5s both}
 .kpi:nth-child(2){animation-delay:.07s}.kpi:nth-child(3){animation-delay:.14s}.kpi:nth-child(4){animation-delay:.21s}
 .kpi::after{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--cor)}
@@ -137,6 +137,25 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .btn-whats{background:linear-gradient(135deg,#25d366,#128c4a);color:#04200f;box-shadow:0 6px 18px rgba(37,211,102,.25)}
 .estq-topo{margin:14px 0 4px}.estq-topo strong{display:block;font-size:2rem;line-height:1.2;color:var(--amarelo)}
 .pos{color:var(--ok)}.neg{color:var(--erro)}.alerta{border-color:var(--erro)!important}
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.leg{display:inline-block;width:10px;height:10px;border-radius:3px;margin:0 6px 0 12px}
+.graf{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;height:190px}
+.col{display:flex;flex-direction:column;cursor:pointer;padding:6px 4px 4px;border-radius:12px;transition:.15s}.col:hover{background:rgba(255,255,255,.04)}
+.col.sel{background:rgba(252,211,74,.08)}
+.barras{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:5px}
+.barras span{width:36%;max-width:34px;min-height:3px;border-radius:6px 6px 0 0;transition:height .6s}
+.b-rec{background:var(--amarelo)}.b-desp{background:#ff9f45}
+.col small{text-align:center;color:var(--suave);margin-top:6px;text-transform:capitalize}.col.sel small{color:var(--amarelo);font-weight:700}
+.linha-bar{display:grid;grid-template-columns:140px 1fr 110px;gap:10px;align-items:center;margin:9px 0;font-size:.92rem}
+.linha-bar div{height:10px;border-radius:99px;background:rgba(255,255,255,.07)}.linha-bar i{display:block;height:100%;border-radius:99px;background:var(--cor)}.linha-bar b{text-align:right}
+.resumo-rec{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.resumo-rec div{padding:12px;border-radius:12px;background:var(--sup2);display:flex;flex-direction:column}
+.resumo-rec span{color:var(--suave);font-size:.8rem}.resumo-rec b{font-size:1.15rem}.resumo-rec .destaque{color:var(--amarelo)}
+.pix-box{display:flex;gap:16px;align-items:flex-start;margin-top:16px;padding:14px;border-radius:14px;background:var(--sup2);border:1px dashed rgba(252,211,74,.4);flex-wrap:wrap}
+.pix-box .qr{background:#fff;padding:8px;border-radius:10px;min-width:150px;min-height:150px;display:grid;place-items:center;color:#333;font-size:.8rem;text-align:center}
+.pix-box .qr img{display:block;width:170px;height:170px;image-rendering:pixelated}
+.pix-box>div:last-child{flex:1;min-width:220px}.pix-box textarea{font-size:.74rem;word-break:break-all;margin:6px 0 10px}.pix-box .btn{margin-right:8px;padding:9px 14px}
+@media(max-width:860px){.duas{grid-template-columns:1fr}.linha-bar{grid-template-columns:100px 1fr 90px}}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -229,9 +248,12 @@ window.CONFIG = {
   // Texto no rodapé do orçamento/OS (revise com as regras da sua oficina)
   TERMOS: "Valores sujeitos a alteração caso sejam encontrados problemas adicionais, mediante aprovação do cliente. A garantia cobre os serviços e peças descritos, nos prazos informados.",
 
+  // Pix: chave (CPF, CNPJ, e-mail, telefone com +55 ou chave aleatória), nome do recebedor e cidade
+  PIX: { CHAVE: "02099979073", NOME: "Michel  Fernando Weiler", CIDADE: "Lajeado-RS" },
+
   // Supabase > Project Settings > API
-  SUPABASE_URL: "https://sobkzxdqclxewvlzssfn.supabase.co/",
-  SUPABASE_ANON_KEY: "sb_publishable_k1VPmPfzmx5lw0yQsMXz4w_kyY3Csst"
+  SUPABASE_URL: "https://qyzyczyfucerqxhffgjm.supabase.co/",
+  SUPABASE_ANON_KEY: "sb_publishable_govM7LdQaURB3aC3W9xz3g_coSt4HQU"
 };
 
   </script>
@@ -926,6 +948,252 @@ MODULOS.estoque = {
     corpo.onclick = (e) => { const tr = e.target.closest("tr[data-id]"); if (tr && editar) abrir(linhas.find((l) => l.id === tr.dataset.id)); };
     if (editar) el.querySelector("#novo").onclick = () => abrir(null);
     desenhar();
+  },
+};
+
+// ===================== PIX (BR Code estático) =====================
+const crc16 = (s) => {
+  let c = 0xFFFF;
+  for (let i = 0; i < s.length; i++) {
+    c ^= s.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) c = c & 0x8000 ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF;
+  }
+  return c.toString(16).toUpperCase().padStart(4, "0");
+};
+const tlv = (id, v) => id + String(v.length).padStart(2, "0") + v;
+const limpaPix = (s, max) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 ]/g, "").toUpperCase().slice(0, max);
+function pixPayload({ chave, nome, cidade, valor, txid }) {
+  let p = tlv("00", "01") + tlv("01", "11") + tlv("26", tlv("00", "br.gov.bcb.pix") + tlv("01", chave)) + tlv("52", "0000") + tlv("53", "986");
+  if (valor > 0) p += tlv("54", valor.toFixed(2));
+  p += tlv("58", "BR") + tlv("59", limpaPix(nome, 25) || "RECEBEDOR") + tlv("60", limpaPix(cidade, 15) || "BRASIL")
+    + tlv("62", tlv("05", limpaPix(txid, 25).replace(/ /g, "") || "***"));
+  p += "6304";
+  return p + crc16(p);
+}
+function carregarQR() {
+  return window.qrcode ? Promise.resolve() : new Promise((ok, erro) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+    s.onload = ok; s.onerror = erro; document.head.appendChild(s);
+  });
+}
+async function qrHtml(texto) {
+  try { await carregarQR(); const q = qrcode(0, "M"); q.addData(texto); q.make(); return q.createImgTag(5, 2); } catch (e) { return ""; }
+}
+
+// ===================== FINANCEIRO =====================
+const FORMAS = { dinheiro: "Dinheiro", pix: "Pix", cartao_debito: "Cartão de débito", cartao_credito: "Cartão de crédito", transferencia: "Transferência", boleto: "Boleto" };
+const CATS_DESP = ["Aluguel", "Água / Luz / Internet", "Salários", "Peças e materiais", "Ferramentas", "Impostos", "Marketing", "Outros"];
+const CAMPOS_DESP = [
+  { k: "descricao", t: "Descrição", req: true, larga: true }, { k: "categoria", t: "Categoria", tipo: "select", opcoes: CATS_DESP.map((c) => [c, c]) },
+  { k: "valor", t: "Valor (R$)", tipo: "number", req: true }, { k: "vencimento", t: "Vencimento", tipo: "date", req: true },
+  { k: "pago", t: "Situação", tipo: "select", opcoes: [["false", "A pagar"], ["true", "Paga"]] },
+];
+const pad2 = (n) => String(n).padStart(2, "0");
+const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+const soma = (arr, k) => arr.reduce((s, x) => s + Number(x[k] || 0), 0);
+const kpiHtml = (t, v, cor, ic, din) => `<div class="kpi" style="--cor:${cor}"><div class="kpi-icone">${svg(ic)}</div><strong style="font-size:${din ? "1.6rem" : "2.5rem"}">${v}</strong><span>${t}</span></div>`;
+const badgeCor = (t, cor) => `<span class="badge" style="--cor:${cor}">${t}</span>`;
+const badgePag = (s) => (s === "pago" ? badgeCor("Pago", "#46d39a") : s === "cancelado" ? badgeCor("Cancelado", "#ff6b5e") : badgeCor("Pendente", "#fcd34a"));
+
+MODULOS.financeiro = {
+  async render(el, ctx) {
+    const papel = ctx.perfil.papel;
+    const ABAS = [["resumo", "Resumo", ["dono", "contador"]], ["receber", "A receber", ["dono", "atendente"]],
+      ["recebimentos", "Recebimentos", ["dono", "atendente", "contador"]], ["despesas", "Despesas", ["dono", "contador"]]].filter((a) => a[2].includes(papel));
+    const RENDER = {};
+    el.innerHTML = `<div class="chips" id="abas">${ABAS.map((a) => `<button class="chip" data-a="${a[0]}" type="button">${a[1]}</button>`).join("")}</div><div id="aba"></div>`;
+    const alvo = el.querySelector("#aba");
+    const abrirAba = async (a) => {
+      el.querySelectorAll("#abas .chip").forEach((c) => c.classList.toggle("ativo", c.dataset.a === a));
+      alvo.innerHTML = '<p class="suave">Carregando…</p>';
+      try { await RENDER[a](alvo); } catch (e) { console.error(e); alvo.innerHTML = `<div class="aviso erro">Erro ao carregar: ${esc(e.message || e)}</div>`; }
+    };
+    el.querySelector("#abas").onclick = (e) => { const b = e.target.closest("[data-a]"); if (b) abrirAba(b.dataset.a); };
+
+    const buscarOS = async () => {
+      const [a, t] = await Promise.all([
+        sb.from("ordens_servico").select("id,numero,status,clientes(nome),veiculos(placa,modelo)").in("status", ["aprovado", "em_andamento", "aguardando_peca", "concluido", "entregue"]).order("numero", { ascending: false }).limit(500),
+        sb.from("os_totais").select("os_id,total_geral,total_pago")]);
+      if (a.error) throw a.error;
+      const tot = {}; (t.data || []).forEach((x) => (tot[x.os_id] = x));
+      return a.data.map((o) => ({ ...o, total: Number(tot[o.id]?.total_geral || 0), pago: Number(tot[o.id]?.total_pago || 0) }));
+    };
+
+    // ---------------- RESUMO ----------------
+    RENDER.resumo = async (el2) => {
+      const agora = new Date();
+      const meses = Array.from({ length: 6 }, (_, i) => { const d = new Date(agora.getFullYear(), agora.getMonth() - 5 + i, 1);
+        return { k: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`, rot: d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "") }; });
+      const mk = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; };
+      const [pg, dp, pend, os] = await Promise.all([
+        sb.from("pagamentos").select("valor,forma,data_pagamento").eq("status", "pago").gte("data_pagamento", meses[0].k + "-01").limit(5000),
+        sb.from("despesas").select("valor,categoria,data_pago").eq("pago", true).gte("data_pago", meses[0].k + "-01").limit(5000),
+        sb.from("despesas").select("valor,vencimento").eq("pago", false), buscarOS()]);
+      if (pg.error) throw pg.error; if (dp.error) throw dp.error;
+      const rec = pg.data.map((x) => ({ ...x, m: mk(x.data_pagamento) })), des = dp.data.filter((x) => x.data_pago).map((x) => ({ ...x, m: x.data_pago.slice(0, 7) }));
+      const aReceber = os.reduce((s, o) => s + Math.max(o.total - o.pago, 0), 0), aPagar = soma(pend.data || [], "valor");
+      const vencidas = (pend.data || []).filter((x) => x.vencimento < hojeISO()).length;
+      const maxM = Math.max(1, ...meses.map((m) => Math.max(soma(rec.filter((x) => x.m === m.k), "valor"), soma(des.filter((x) => x.m === m.k), "valor"))));
+      const agrupa = (arr, fk) => Object.entries(arr.reduce((a, x) => { const k = fk(x) || "Outros"; a[k] = (a[k] || 0) + Number(x.valor); return a; }, {})).sort((a, b) => b[1] - a[1]);
+      const barras = (pares, cor, nome) => { const mx = Math.max(1, ...pares.map((p) => p[1]));
+        return pares.length ? pares.map(([k, v]) => `<div class="linha-bar" style="--cor:${cor}"><span>${esc(nome(k))}</span><div><i style="width:${(v / mx * 100).toFixed(0)}%"></i></div><b>${brl(v)}</b></div>`).join("") : '<p class="suave">Sem lançamentos neste mês.</p>'; };
+      const pintar = (sel) => {
+        const R = rec.filter((x) => x.m === sel), D = des.filter((x) => x.m === sel), res = soma(R, "valor") - soma(D, "valor");
+        el2.innerHTML = `<div class="kpis">
+          ${kpiHtml("Recebido no mês", brl(soma(R, "valor")), "#fcd34a", "financeiro", true)}${kpiHtml("Despesas pagas no mês", brl(soma(D, "valor")), "#ff9f45", "lembretes", true)}
+          ${kpiHtml("Resultado do mês", brl(res), res >= 0 ? "#46d39a" : "#ff6b5e", "check", true)}${kpiHtml("A receber (OS com saldo)", brl(aReceber), "#5cc8ff", "os", true)}
+          ${kpiHtml(`Despesas a pagar${vencidas ? ` · ${vencidas} vencida(s)` : ""}`, brl(aPagar), vencidas ? "#ff6b5e" : "#c58cff", "estoque", true)}</div>
+          <section class="painel-card"><div class="painel-titulo"><h3>Últimos 6 meses</h3><span class="suave"><i class="leg" style="background:var(--amarelo)"></i>Recebido <i class="leg" style="background:#ff9f45"></i>Despesas</span></div>
+            <div class="graf">${meses.map((m) => { const a = soma(rec.filter((x) => x.m === m.k), "valor"), b = soma(des.filter((x) => x.m === m.k), "valor");
+              return `<div class="col ${m.k === sel ? "sel" : ""}" data-m="${m.k}" title="Recebido ${brl(a)} · Despesas ${brl(b)}"><div class="barras"><span class="b-rec" style="height:${a / maxM * 100}%"></span><span class="b-desp" style="height:${b / maxM * 100}%"></span></div><small>${m.rot}</small></div>`; }).join("")}</div></section>
+          <div class="duas"><section class="painel-card"><h3 style="margin-bottom:10px">Recebido por forma de pagamento</h3>${barras(agrupa(R, (x) => x.forma), "#fcd34a", (k) => FORMAS[k] || k)}</section>
+          <section class="painel-card"><h3 style="margin-bottom:10px">Despesas por categoria</h3>${barras(agrupa(D, (x) => x.categoria), "#ff9f45", (k) => k)}</section></div>`;
+        el2.querySelectorAll(".col").forEach((c) => (c.onclick = () => pintar(c.dataset.m)));
+      };
+      pintar(meses[5].k);
+    };
+
+    // ---------------- A RECEBER ----------------
+    RENDER.receber = async (el2) => {
+      const os = await buscarOS(); let filtro = "saldo";
+      const saldo = (o) => Math.max(o.total - o.pago, 0);
+      el2.innerHTML = `<div class="kpis">${kpiHtml("Total a receber", brl(os.reduce((s, o) => s + saldo(o), 0)), "#fcd34a", "financeiro", true)}
+        ${kpiHtml("OS com saldo", os.filter((o) => saldo(o) > 0.009).length, "#ff9f45", "os")}
+        ${kpiHtml("Prontas e sem pagamento", os.filter((o) => o.status === "concluido" && saldo(o) > 0.009).length, "#46d39a", "check")}</div>
+        <div class="chips">${[["saldo", "Com saldo"], ["quitadas", "Quitadas"], ["todas", "Todas"]].map(([k, t]) => `<button class="chip ${k === filtro ? "ativo" : ""}" data-f="${k}" type="button">${t}</button>`).join("")}</div>
+        <div class="tabela-wrap"><table class="tabela"><thead><tr><th>OS</th><th>Cliente</th><th>Veículo</th><th>Status</th><th>Total</th><th>Pago</th><th>Saldo</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
+      const corpo = el2.querySelector("#corpo");
+      const desenhar = () => {
+        const vis = os.filter((o) => filtro === "todas" || (filtro === "saldo" ? saldo(o) > 0.009 : saldo(o) <= 0.009));
+        corpo.innerHTML = vis.length ? vis.map((o) => `<tr class="clicavel" data-id="${o.id}"><td><b>#${o.numero}</b></td><td>${esc(o.clientes?.nome)}</td><td>${esc(o.veiculos?.placa)}</td><td>${badgeOS(o.status)}</td>
+          <td>${brl(o.total)}</td><td>${brl(o.pago)}</td><td><b style="color:${saldo(o) > 0.009 ? "var(--amarelo)" : "var(--ok)"}">${saldo(o) > 0.009 ? brl(saldo(o)) : "Quitada"}</b></td></tr>`).join("")
+          : '<tr><td colspan="7" class="suave centro">Nada por aqui.</td></tr>';
+      };
+      el2.querySelector(".chips").onclick = (e) => { const b = e.target.closest("[data-f]"); if (!b) return; filtro = b.dataset.f; el2.querySelectorAll(".chip").forEach((c) => c.classList.toggle("ativo", c === b)); desenhar(); };
+      corpo.onclick = (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) receber(os.find((x) => x.id === tr.dataset.id)); };
+      desenhar();
+    };
+
+    const receber = async (o) => {
+      const saldo = Math.max(o.total - o.pago, 0);
+      const m = modal(`Receber · OS #${o.numero}`, `<p class="suave">${esc(o.clientes?.nome)} · ${esc(o.veiculos?.placa || "")}</p>
+        <div class="resumo-rec"><div><span>Total</span><b>${brl(o.total)}</b></div><div><span>Já pago</span><b>${brl(o.pago)}</b></div><div><span>Saldo</span><b class="destaque">${brl(saldo)}</b></div></div>
+        <div class="grade-form"><div class="campo"><label>Valor recebido (R$)</label><input id="r_valor" type="number" step="0.01" value="${saldo.toFixed(2)}"></div>
+          <div class="campo"><label>Forma de pagamento</label><select id="r_forma">${Object.entries(FORMAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+          <div class="campo larga"><label>Observação</label><input id="r_obs" placeholder="Opcional"></div></div>
+        <div id="pix-area"></div>
+        <div class="acoes"><button class="btn btn-sec" id="r_pix" type="button">Gerar Pix (QR Code)</button><span style="flex:1"></span>
+          <button class="btn btn-sec" id="r_fechar" type="button">Fechar</button><button class="btn" id="r_ok" type="button">Registrar pagamento</button></div>
+        <h4>Pagamentos desta OS</h4><div id="r_hist"></div>`);
+      const $ = (s) => m.querySelector(s);
+      $("#r_fechar").onclick = m.fechar;
+      const hist = async () => {
+        const { data } = await sb.from("pagamentos").select("*").eq("os_id", o.id).order("created_at", { ascending: false });
+        $("#r_hist").innerHTML = data?.length ? `<div class="tabela-wrap"><table class="tabela" style="min-width:0"><tbody>${data.map((x) => `<tr><td>${dataBR(x.data_pagamento || x.created_at)}</td><td>${FORMAS[x.forma]}</td><td><b>${brl(x.valor)}</b></td><td>${badgePag(x.status)}</td>
+          <td>${papel === "dono" && x.status !== "cancelado" ? `<button class="x-linha" data-cancelar="${x.id}" title="Cancelar pagamento" type="button">×</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : '<p class="suave">Nenhum pagamento registrado ainda.</p>';
+      };
+      hist();
+      $("#r_hist").onclick = async (e) => {
+        const id = e.target.dataset.cancelar; if (!id || !confirm("Cancelar este pagamento? O valor volta para o saldo da OS.")) return;
+        const { error } = await sb.from("pagamentos").update({ status: "cancelado" }).eq("id", id);
+        if (error) { toast(erroAmigavel(error), "erro"); return; }
+        toast("Pagamento cancelado."); m.fechar(); abrirAba("receber");
+      };
+      $("#r_pix").onclick = () => {
+        const P = CONFIG.PIX || {}, valor = Number($("#r_valor").value);
+        if (!P.CHAVE) { toast("Preencha a chave Pix no bloco CONFIGURAÇÃO (PIX) do arquivo.", "erro"); return; }
+        if (!(valor > 0)) { toast("Informe o valor.", "erro"); return; }
+        const code = pixPayload({ chave: P.CHAVE, nome: P.NOME || CONFIG.NOME_OFICINA, cidade: P.CIDADE, valor, txid: "OS" + o.numero });
+        $("#pix-area").innerHTML = `<div class="pix-box"><div class="qr" id="qr">Gerando QR…</div><div><b>Pix copia e cola · ${brl(valor)}</b>
+          <textarea id="pix-code" rows="4" readonly>${esc(code)}</textarea><button class="btn btn-sec" id="pix-copiar" type="button">Copiar código</button>
+          <button class="btn btn-whats" id="pix-zap" type="button">Enviar por WhatsApp</button></div></div>`;
+        $("#r_forma").value = "pix";
+        qrHtml(code).then((h) => ($("#qr").innerHTML = h || '<span>QR indisponível sem internet. Use o copia e cola.</span>'));
+        $("#pix-copiar").onclick = () => { const t = $("#pix-code"); t.select();
+          (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).catch(() => document.execCommand("copy")).then(() => toast("Código Pix copiado!")); };
+        $("#pix-zap").onclick = async () => {
+          const w = window.open("", "_blank"); if (!w) { toast("Permita pop-ups para este site.", "erro"); return; }
+          const { data } = await sb.from("ordens_servico").select("clientes(nome,whatsapp,telefone)").eq("id", o.id).single();
+          const c = data?.clientes || {}, num = String(c.whatsapp || c.telefone || "").replace(/\D/g, "");
+          const msg = `*${CONFIG.NOME_OFICINA}*\nOlá, ${(c.nome || "").split(" ")[0]}! Segue o Pix da OS nº ${o.numero}, no valor de *${brl(valor)}*.\n\nCopie o código abaixo e cole no app do seu banco (Pix copia e cola):\n\n${code}`;
+          w.location.href = `https://wa.me/${num.length >= 10 ? (num.length <= 11 ? "55" + num : num) : ""}?text=${encodeURIComponent(msg)}`;
+        };
+      };
+      $("#r_ok").onclick = async () => {
+        const valor = Number($("#r_valor").value), forma = $("#r_forma").value;
+        if (!(valor > 0)) { toast("Informe um valor maior que zero.", "erro"); return; }
+        if (valor > saldo + 0.009 && !confirm("O valor é maior que o saldo da OS. Registrar mesmo assim?")) return;
+        const btn = $("#r_ok"); btn.disabled = true;
+        const { error } = await sb.from("pagamentos").insert({ os_id: o.id, valor, forma, status: "pago", data_pagamento: new Date().toISOString(),
+          pix_txid: forma === "pix" ? "OS" + o.numero : null, observacoes: $("#r_obs").value.trim() || null });
+        if (error) { toast(erroAmigavel(error), "erro"); btn.disabled = false; return; }
+        toast("Pagamento registrado!"); m.fechar(); abrirAba("receber");
+      };
+    };
+
+    // ---------------- RECEBIMENTOS ----------------
+    RENDER.recebimentos = async (el2) => {
+      const { data, error } = await sb.from("pagamentos").select("*, ordens_servico(numero, clientes(nome))").order("created_at", { ascending: false }).limit(300);
+      if (error) throw error;
+      const pagos = data.filter((x) => x.status === "pago");
+      el2.innerHTML = `<div class="kpis">${kpiHtml("Total recebido (lista)", brl(soma(pagos, "valor")), "#46d39a", "financeiro", true)}${kpiHtml("Pagamentos", pagos.length, "#fcd34a", "check")}</div>
+        <div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar por cliente, OS ou forma…"></div>
+        <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Data</th><th>OS</th><th>Cliente</th><th>Forma</th><th>Valor</th><th>Situação</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
+      const desenhar = () => {
+        const q = el2.querySelector("#busca").value.toLowerCase().trim();
+        const vis = data.filter((x) => !q || `${x.ordens_servico?.numero} ${x.ordens_servico?.clientes?.nome} ${FORMAS[x.forma]}`.toLowerCase().includes(q));
+        el2.querySelector("#corpo").innerHTML = vis.length ? vis.map((x) => `<tr><td>${dataBR(x.data_pagamento || x.created_at)}</td><td>#${x.ordens_servico?.numero ?? ""}</td><td>${esc(x.ordens_servico?.clientes?.nome)}</td>
+          <td>${FORMAS[x.forma]}</td><td><b>${brl(x.valor)}</b></td><td>${badgePag(x.status)}</td></tr>`).join("") : '<tr><td colspan="6" class="suave centro">Nenhum pagamento por aqui.</td></tr>';
+      };
+      el2.querySelector("#busca").oninput = desenhar; desenhar();
+    };
+
+    // ---------------- DESPESAS ----------------
+    RENDER.despesas = async (el2) => {
+      let filtro = "pagar", linhas = [];
+      const carregar = async () => { const { data, error } = await sb.from("despesas").select("*").order("vencimento", { ascending: false }).limit(500); if (error) throw error; linhas = data; };
+      await carregar();
+      el2.innerHTML = `<div class="kpis" id="dk"></div><div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar despesa…"><button class="btn" id="nova" type="button">+ Nova despesa</button></div>
+        <div class="chips">${[["pagar", "A pagar"], ["pagas", "Pagas"], ["todas", "Todas"]].map(([k, t]) => `<button class="chip ${k === filtro ? "ativo" : ""}" data-f="${k}" type="button">${t}</button>`).join("")}</div>
+        <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Vencimento</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Situação</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
+      const corpo = el2.querySelector("#corpo"), sit = (d) => d.pago ? badgeCor("Paga", "#46d39a") : d.vencimento < hojeISO() ? badgeCor("Vencida", "#ff6b5e") : badgeCor("A pagar", "#fcd34a");
+      const desenhar = () => {
+        const pend = linhas.filter((d) => !d.pago), venc = pend.filter((d) => d.vencimento < hojeISO()), mes = hojeISO().slice(0, 7);
+        el2.querySelector("#dk").innerHTML = kpiHtml("A pagar", brl(soma(pend, "valor")), "#fcd34a", "financeiro", true) + kpiHtml("Vencidas", brl(soma(venc, "valor")), "#ff6b5e", "lembretes", true)
+          + kpiHtml("Pagas neste mês", brl(soma(linhas.filter((d) => d.pago && (d.data_pago || "").slice(0, 7) === mes), "valor")), "#46d39a", "check", true);
+        const q = el2.querySelector("#busca").value.toLowerCase().trim();
+        const vis = linhas.filter((d) => (filtro === "todas" || (filtro === "pagar" ? !d.pago : d.pago)) && (!q || `${d.descricao} ${d.categoria}`.toLowerCase().includes(q)));
+        corpo.innerHTML = vis.length ? vis.map((d) => `<tr class="clicavel" data-id="${d.id}"><td>${dataBR(d.vencimento)}</td><td><b>${esc(d.descricao)}</b></td><td>${esc(d.categoria || "")}</td><td>${brl(d.valor)}</td><td>${sit(d)}</td></tr>`).join("")
+          : '<tr><td colspan="5" class="suave centro">Nenhuma despesa por aqui.</td></tr>';
+      };
+      const abrir = (reg) => {
+        const m = modal(reg ? "Editar despesa" : "Nova despesa", `<div class="grade-form">${CAMPOS_DESP.map((c) => campoHtml(c, reg ? reg[c.k] : { vencimento: hojeISO(), pago: false, categoria: "Outros" }[c.k])).join("")}</div>
+          <div class="acoes">${reg ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir</button>' : ""}<span style="flex:1"></span><button class="btn btn-sec" id="cancelar" type="button">Cancelar</button><button class="btn" id="salvar" type="button">Salvar</button></div>`);
+        m.querySelector("#cancelar").onclick = m.fechar;
+        m.querySelector("#salvar").onclick = async () => {
+          const d = lerCampos(CAMPOS_DESP, m);
+          if (!d.descricao || !d.vencimento || !(d.valor > 0)) { toast("Preencha descrição, valor (maior que zero) e vencimento.", "erro"); return; }
+          d.pago = d.pago === "true"; d.data_pago = d.pago ? reg?.data_pago || hojeISO() : null;
+          const { error } = reg ? await sb.from("despesas").update(d).eq("id", reg.id) : await sb.from("despesas").insert(d);
+          if (error) { toast(erroAmigavel(error), "erro"); return; }
+          toast("Despesa salva!"); m.fechar(); await carregar(); desenhar();
+        };
+        const ap = m.querySelector("#apagar");
+        if (ap) ap.onclick = async () => {
+          if (!confirm("Excluir esta despesa?")) return;
+          const { error } = await sb.from("despesas").delete().eq("id", reg.id);
+          if (error) { toast(erroAmigavel(error), "erro"); return; }
+          toast("Despesa excluída."); m.fechar(); await carregar(); desenhar();
+        };
+      };
+      el2.querySelector("#busca").oninput = desenhar; el2.querySelector("#nova").onclick = () => abrir(null);
+      el2.querySelector(".chips").onclick = (e) => { const b = e.target.closest("[data-f]"); if (!b) return; filtro = b.dataset.f; el2.querySelectorAll(".chip").forEach((c) => c.classList.toggle("ativo", c === b)); desenhar(); };
+      corpo.onclick = (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) abrir(linhas.find((l) => l.id === tr.dataset.id)); };
+      desenhar();
+    };
+
+    abrirAba(ABAS[0][0]);
   },
 };
 
