@@ -249,7 +249,7 @@ window.CONFIG = {
   TERMOS: "Valores sujeitos a alteração caso sejam encontrados problemas adicionais, mediante aprovação do cliente. A garantia cobre os serviços e peças descritos, nos prazos informados.",
 
   // Pix: chave (CPF, CNPJ, e-mail, telefone com +55 ou chave aleatória), nome do recebedor e cidade
-  PIX: { CHAVE: "02099979073", NOME: "Michel  Fernando Weiler", CIDADE: "Lajeado-RS" },
+  PIX: { CHAVE: "", NOME: "", CIDADE: "" },
 
   // Supabase > Project Settings > API
   SUPABASE_URL: "https://sobkzxdqclxewvlzssfn.supabase.co/",
@@ -578,6 +578,17 @@ MODULOS.os = {
         : '<tr><td colspan="7" class="suave centro">Nenhuma OS por aqui.</td></tr>';
     };
 
+    const oferecerRecebimento = async (id) => {
+      const [a, t] = await Promise.all([
+        sb.from("ordens_servico").select("id,numero,status,clientes(nome),veiculos(placa,modelo)").eq("id", id).single(),
+        sb.from("os_totais").select("total_geral,total_pago").eq("os_id", id).single()]);
+      if (a.error || t.error) return;
+      const total = Number(t.data.total_geral), pago = Number(t.data.total_pago);
+      if (total - pago <= 0.009) return;
+      receberOS({ ...a.data, total, pago }, async () => { await carregar(); desenhar(); },
+        { titulo: "OS concluída! Receber agora?", aviso: `Serviço concluído. Saldo a receber: <b>${brl(total - pago)}</b>. Quer registrar o recebimento agora? Se preferir, faça depois em Financeiro.` });
+    };
+
     const abrir = async (os) => {
       const o = os || {};
       let itens = [];
@@ -608,8 +619,9 @@ MODULOS.os = {
         <div class="grade-form"><div class="campo larga"><label>Observações</label><textarea id="f_obs" rows="2">${esc(o.observacoes)}</textarea></div>
           <div class="campo"><label>Desconto (R$)</label><input id="f_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div></div>
         <div class="totais"><div><span>Subtotal</span><span id="t-sub"></span></div><div class="geral"><span>Total</span><span id="t-total"></span></div>
-          ${os ? `<div><span>Pago</span><span>${brl(o.pago)}</span></div><div><span>Saldo</span><span id="t-saldo"></span></div>` : ""}</div>
+          ${os ? `<div><span>Pago</span><span id="t-pago">${brl(o.pago)}</span></div><div><span>Saldo</span><span id="t-saldo"></span></div>` : ""}</div>
         <div class="acoes">${os && papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir OS</button>' : ""}<span style="flex:1"></span>
+          ${os && editaTudo ? '<button class="btn btn-sec" id="receber-btn" type="button">Receber</button>' : ""}
           ${os ? '<button class="btn btn-sec" id="imprimir" type="button">PDF / Imprimir</button><button class="btn btn-whats" id="whats" type="button">WhatsApp</button>' : ""}
           <button class="btn btn-sec" id="cancelar" type="button">Fechar</button><button class="btn" id="salvar" type="button">Salvar OS</button></div>`, true);
 
@@ -622,6 +634,7 @@ MODULOS.os = {
         const total = sub - Number($("#f_desc").value || 0);
         $("#t-sub").textContent = brl(sub); $("#t-total").textContent = brl(total);
         if ($("#t-saldo")) $("#t-saldo").textContent = brl(total - Number(o.pago || 0));
+        if ($("#t-pago")) $("#t-pago").textContent = brl(o.pago || 0);
         m.querySelectorAll("tr[data-i] .tot").forEach((td) => {
           const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * i.valor_unitario);
           const pr = i.produto_id && produtos.find((x) => x.id === i.produto_id), q = td.parentNode.querySelector("[data-c=quantidade]");
@@ -671,6 +684,11 @@ MODULOS.os = {
               diagnostico: $("#f_diag").value, observacoes: $("#f_obs").value, desconto: Number($("#f_desc").value || 0),
               checklist: { itens: [...m.querySelectorAll(".checks input:checked")].map((x) => x.value), combustivel: $("#f_comb").value } } };
         };
+        if ($("#receber-btn")) $("#receber-btn").onclick = () => {
+          const sub = itens.reduce((s, i) => s + Number(i.quantidade || 0) * Number(i.valor_unitario || 0), 0);
+          receberOS({ id: o.id, numero: o.numero, status: o.status, clientes: o.clientes, veiculos: o.veiculos, total: sub - Number($("#f_desc").value || 0), pago: Number(o.pago || 0) },
+            async () => { await carregar(); desenhar(); const f = linhas.find((x) => x.id === o.id); if (f) { o.pago = f.pago; calc(); } });
+        };
         $("#imprimir").onclick = async () => {
           const w = window.open("", "_blank");
           if (!w) { toast("O navegador bloqueou a janela. Permita pop-ups para este site.", "erro"); return; }
@@ -699,7 +717,7 @@ MODULOS.os = {
           defeito_relatado: $("#f_defeito").value.trim() || null, desconto: Number($("#f_desc").value || 0), observacoes: $("#f_obs").value.trim() || null });
         if (editaTudo && (!dados.cliente_id || !dados.veiculo_id)) { toast("Escolha o cliente e o veículo.", "erro"); return; }
         if (itens.some((i) => !i.descricao.trim() || !(i.quantidade > 0))) { toast("Todo item precisa de descrição e quantidade.", "erro"); return; }
-        const btn = $("#salvar"); btn.disabled = true;
+        const btn = $("#salvar"); btn.disabled = true; const antes = o.status;
         try {
           let osId = o.id;
           if (!os) { const r = await sb.from("ordens_servico").insert(dados).select("id").single(); if (r.error) throw r.error; osId = r.data.id; }
@@ -709,6 +727,7 @@ MODULOS.os = {
           if (antigos.length) { const r = await sb.from("os_itens").delete().in("id", antigos); if (r.error) throw r.error; }
           if (os) { const r = await sb.from("ordens_servico").update(dados).eq("id", osId); if (r.error) throw r.error; }
           toast("OS salva!"); m.fechar(); await carregar(); desenhar();
+          if (os && antes !== "concluido" && dados.status === "concluido" && editaTudo) await oferecerRecebimento(osId);
         } catch (e) { console.error(e); toast(erroAmigavel(e), "erro"); btn.disabled = false; }
       };
       const ap = $("#apagar");
@@ -996,6 +1015,66 @@ const kpiHtml = (t, v, cor, ic, din) => `<div class="kpi" style="--cor:${cor}"><
 const badgeCor = (t, cor) => `<span class="badge" style="--cor:${cor}">${t}</span>`;
 const badgePag = (s) => (s === "pago" ? badgeCor("Pago", "#46d39a") : s === "cancelado" ? badgeCor("Cancelado", "#ff6b5e") : badgeCor("Pendente", "#fcd34a"));
 
+async function receberOS(o, depois, opts = {}) {
+  const papel = window.CTX.perfil.papel;
+      const saldo = Math.max(o.total - o.pago, 0);
+      const m = modal(opts.titulo || `Receber · OS #${o.numero}`, `${opts.aviso ? `<div class="aviso">${opts.aviso}</div>` : ""}<p class="suave">${esc(o.clientes?.nome)} · ${esc(o.veiculos?.placa || "")}</p>
+        <div class="resumo-rec"><div><span>Total</span><b>${brl(o.total)}</b></div><div><span>Já pago</span><b>${brl(o.pago)}</b></div><div><span>Saldo</span><b class="destaque">${brl(saldo)}</b></div></div>
+        <div class="grade-form"><div class="campo"><label>Valor recebido (R$)</label><input id="r_valor" type="number" step="0.01" value="${saldo.toFixed(2)}"></div>
+          <div class="campo"><label>Forma de pagamento</label><select id="r_forma">${Object.entries(FORMAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+          <div class="campo"><label>Data do recebimento</label><input id="r_data" type="date" value="${hojeISO()}"></div>
+          <div class="campo"><label>Observação</label><input id="r_obs" placeholder="Opcional"></div></div>
+        <div id="pix-area"></div>
+        <div class="acoes"><button class="btn btn-sec" id="r_pix" type="button">Gerar Pix (QR Code)</button><span style="flex:1"></span>
+          <button class="btn btn-sec" id="r_fechar" type="button">${opts.aviso ? "Receber depois" : "Fechar"}</button><button class="btn" id="r_ok" type="button">Registrar pagamento</button></div>
+        <h4>Pagamentos desta OS</h4><div id="r_hist"></div>`);
+      const $ = (s) => m.querySelector(s);
+      $("#r_fechar").onclick = m.fechar;
+      const hist = async () => {
+        const { data } = await sb.from("pagamentos").select("*").eq("os_id", o.id).order("created_at", { ascending: false });
+        $("#r_hist").innerHTML = data?.length ? `<div class="tabela-wrap"><table class="tabela" style="min-width:0"><tbody>${data.map((x) => `<tr><td>${dataBR(x.data_pagamento || x.created_at)}</td><td>${FORMAS[x.forma]}</td><td><b>${brl(x.valor)}</b></td><td>${badgePag(x.status)}</td>
+          <td>${papel === "dono" && x.status !== "cancelado" ? `<button class="x-linha" data-cancelar="${x.id}" title="Cancelar pagamento" type="button">×</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : '<p class="suave">Nenhum pagamento registrado ainda.</p>';
+      };
+      hist();
+      $("#r_hist").onclick = async (e) => {
+        const id = e.target.dataset.cancelar; if (!id || !confirm("Cancelar este pagamento? O valor volta para o saldo da OS.")) return;
+        const { error } = await sb.from("pagamentos").update({ status: "cancelado" }).eq("id", id);
+        if (error) { toast(erroAmigavel(error), "erro"); return; }
+        toast("Pagamento cancelado."); m.fechar(); depois && depois();
+      };
+      $("#r_pix").onclick = () => {
+        const P = CONFIG.PIX || {}, valor = Number($("#r_valor").value);
+        if (!P.CHAVE) { toast("Preencha a chave Pix no bloco CONFIGURAÇÃO (PIX) do arquivo.", "erro"); return; }
+        if (!(valor > 0)) { toast("Informe o valor.", "erro"); return; }
+        const code = pixPayload({ chave: P.CHAVE, nome: P.NOME || CONFIG.NOME_OFICINA, cidade: P.CIDADE, valor, txid: "OS" + o.numero });
+        $("#pix-area").innerHTML = `<div class="pix-box"><div class="qr" id="qr">Gerando QR…</div><div><b>Pix copia e cola · ${brl(valor)}</b>
+          <textarea id="pix-code" rows="4" readonly>${esc(code)}</textarea><button class="btn btn-sec" id="pix-copiar" type="button">Copiar código</button>
+          <button class="btn btn-whats" id="pix-zap" type="button">Enviar por WhatsApp</button></div></div>`;
+        $("#r_forma").value = "pix";
+        qrHtml(code).then((h) => ($("#qr").innerHTML = h || '<span>QR indisponível sem internet. Use o copia e cola.</span>'));
+        $("#pix-copiar").onclick = () => { const t = $("#pix-code"); t.select();
+          (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).catch(() => document.execCommand("copy")).then(() => toast("Código Pix copiado!")); };
+        $("#pix-zap").onclick = async () => {
+          const w = window.open("", "_blank"); if (!w) { toast("Permita pop-ups para este site.", "erro"); return; }
+          const { data } = await sb.from("ordens_servico").select("clientes(nome,whatsapp,telefone)").eq("id", o.id).single();
+          const c = data?.clientes || {}, num = String(c.whatsapp || c.telefone || "").replace(/\D/g, "");
+          const msg = `*${CONFIG.NOME_OFICINA}*\nOlá, ${(c.nome || "").split(" ")[0]}! Segue o Pix da OS nº ${o.numero}, no valor de *${brl(valor)}*.\n\nCopie o código abaixo e cole no app do seu banco (Pix copia e cola):\n\n${code}`;
+          w.location.href = `https://wa.me/${num.length >= 10 ? (num.length <= 11 ? "55" + num : num) : ""}?text=${encodeURIComponent(msg)}`;
+        };
+      };
+      $("#r_ok").onclick = async () => {
+        const valor = Number($("#r_valor").value), forma = $("#r_forma").value;
+        if (!(valor > 0)) { toast("Informe um valor maior que zero.", "erro"); return; }
+        if ($("#r_data").value > hojeISO()) { toast("A data do recebimento não pode ser futura.", "erro"); return; }
+        if (valor > saldo + 0.009 && !confirm("O valor é maior que o saldo da OS. Registrar mesmo assim?")) return;
+        const btn = $("#r_ok"); btn.disabled = true;
+        const { error } = await sb.from("pagamentos").insert({ os_id: o.id, valor, forma, status: "pago", data_pagamento: ($("#r_data").value && $("#r_data").value !== hojeISO()) ? new Date($("#r_data").value + "T12:00:00").toISOString() : new Date().toISOString(),
+          pix_txid: forma === "pix" ? "OS" + o.numero : null, observacoes: $("#r_obs").value.trim() || null });
+        if (error) { toast(erroAmigavel(error), "erro"); btn.disabled = false; return; }
+        toast("Pagamento registrado!"); m.fechar(); depois && depois();
+      };
+    }
+
 MODULOS.financeiro = {
   async render(el, ctx) {
     const papel = ctx.perfil.papel;
@@ -1075,62 +1154,7 @@ MODULOS.financeiro = {
       desenhar();
     };
 
-    const receber = async (o) => {
-      const saldo = Math.max(o.total - o.pago, 0);
-      const m = modal(`Receber · OS #${o.numero}`, `<p class="suave">${esc(o.clientes?.nome)} · ${esc(o.veiculos?.placa || "")}</p>
-        <div class="resumo-rec"><div><span>Total</span><b>${brl(o.total)}</b></div><div><span>Já pago</span><b>${brl(o.pago)}</b></div><div><span>Saldo</span><b class="destaque">${brl(saldo)}</b></div></div>
-        <div class="grade-form"><div class="campo"><label>Valor recebido (R$)</label><input id="r_valor" type="number" step="0.01" value="${saldo.toFixed(2)}"></div>
-          <div class="campo"><label>Forma de pagamento</label><select id="r_forma">${Object.entries(FORMAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
-          <div class="campo larga"><label>Observação</label><input id="r_obs" placeholder="Opcional"></div></div>
-        <div id="pix-area"></div>
-        <div class="acoes"><button class="btn btn-sec" id="r_pix" type="button">Gerar Pix (QR Code)</button><span style="flex:1"></span>
-          <button class="btn btn-sec" id="r_fechar" type="button">Fechar</button><button class="btn" id="r_ok" type="button">Registrar pagamento</button></div>
-        <h4>Pagamentos desta OS</h4><div id="r_hist"></div>`);
-      const $ = (s) => m.querySelector(s);
-      $("#r_fechar").onclick = m.fechar;
-      const hist = async () => {
-        const { data } = await sb.from("pagamentos").select("*").eq("os_id", o.id).order("created_at", { ascending: false });
-        $("#r_hist").innerHTML = data?.length ? `<div class="tabela-wrap"><table class="tabela" style="min-width:0"><tbody>${data.map((x) => `<tr><td>${dataBR(x.data_pagamento || x.created_at)}</td><td>${FORMAS[x.forma]}</td><td><b>${brl(x.valor)}</b></td><td>${badgePag(x.status)}</td>
-          <td>${papel === "dono" && x.status !== "cancelado" ? `<button class="x-linha" data-cancelar="${x.id}" title="Cancelar pagamento" type="button">×</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : '<p class="suave">Nenhum pagamento registrado ainda.</p>';
-      };
-      hist();
-      $("#r_hist").onclick = async (e) => {
-        const id = e.target.dataset.cancelar; if (!id || !confirm("Cancelar este pagamento? O valor volta para o saldo da OS.")) return;
-        const { error } = await sb.from("pagamentos").update({ status: "cancelado" }).eq("id", id);
-        if (error) { toast(erroAmigavel(error), "erro"); return; }
-        toast("Pagamento cancelado."); m.fechar(); abrirAba("receber");
-      };
-      $("#r_pix").onclick = () => {
-        const P = CONFIG.PIX || {}, valor = Number($("#r_valor").value);
-        if (!P.CHAVE) { toast("Preencha a chave Pix no bloco CONFIGURAÇÃO (PIX) do arquivo.", "erro"); return; }
-        if (!(valor > 0)) { toast("Informe o valor.", "erro"); return; }
-        const code = pixPayload({ chave: P.CHAVE, nome: P.NOME || CONFIG.NOME_OFICINA, cidade: P.CIDADE, valor, txid: "OS" + o.numero });
-        $("#pix-area").innerHTML = `<div class="pix-box"><div class="qr" id="qr">Gerando QR…</div><div><b>Pix copia e cola · ${brl(valor)}</b>
-          <textarea id="pix-code" rows="4" readonly>${esc(code)}</textarea><button class="btn btn-sec" id="pix-copiar" type="button">Copiar código</button>
-          <button class="btn btn-whats" id="pix-zap" type="button">Enviar por WhatsApp</button></div></div>`;
-        $("#r_forma").value = "pix";
-        qrHtml(code).then((h) => ($("#qr").innerHTML = h || '<span>QR indisponível sem internet. Use o copia e cola.</span>'));
-        $("#pix-copiar").onclick = () => { const t = $("#pix-code"); t.select();
-          (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).catch(() => document.execCommand("copy")).then(() => toast("Código Pix copiado!")); };
-        $("#pix-zap").onclick = async () => {
-          const w = window.open("", "_blank"); if (!w) { toast("Permita pop-ups para este site.", "erro"); return; }
-          const { data } = await sb.from("ordens_servico").select("clientes(nome,whatsapp,telefone)").eq("id", o.id).single();
-          const c = data?.clientes || {}, num = String(c.whatsapp || c.telefone || "").replace(/\D/g, "");
-          const msg = `*${CONFIG.NOME_OFICINA}*\nOlá, ${(c.nome || "").split(" ")[0]}! Segue o Pix da OS nº ${o.numero}, no valor de *${brl(valor)}*.\n\nCopie o código abaixo e cole no app do seu banco (Pix copia e cola):\n\n${code}`;
-          w.location.href = `https://wa.me/${num.length >= 10 ? (num.length <= 11 ? "55" + num : num) : ""}?text=${encodeURIComponent(msg)}`;
-        };
-      };
-      $("#r_ok").onclick = async () => {
-        const valor = Number($("#r_valor").value), forma = $("#r_forma").value;
-        if (!(valor > 0)) { toast("Informe um valor maior que zero.", "erro"); return; }
-        if (valor > saldo + 0.009 && !confirm("O valor é maior que o saldo da OS. Registrar mesmo assim?")) return;
-        const btn = $("#r_ok"); btn.disabled = true;
-        const { error } = await sb.from("pagamentos").insert({ os_id: o.id, valor, forma, status: "pago", data_pagamento: new Date().toISOString(),
-          pix_txid: forma === "pix" ? "OS" + o.numero : null, observacoes: $("#r_obs").value.trim() || null });
-        if (error) { toast(erroAmigavel(error), "erro"); btn.disabled = false; return; }
-        toast("Pagamento registrado!"); m.fechar(); abrirAba("receber");
-      };
-    };
+    const receber = (o) => receberOS(o, () => abrirAba("receber"));
 
     // ---------------- RECEBIMENTOS ----------------
     RENDER.recebimentos = async (el2) => {
@@ -1138,7 +1162,7 @@ MODULOS.financeiro = {
       if (error) throw error;
       const pagos = data.filter((x) => x.status === "pago");
       el2.innerHTML = `<div class="kpis">${kpiHtml("Total recebido (lista)", brl(soma(pagos, "valor")), "#46d39a", "financeiro", true)}${kpiHtml("Pagamentos", pagos.length, "#fcd34a", "check")}</div>
-        <div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar por cliente, OS ou forma…"></div>
+        <div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar por cliente, OS ou forma…">${papel !== "contador" ? '<button class="btn" id="lancar" type="button">+ Lançar recebimento</button>' : ""}</div>
         <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Data</th><th>OS</th><th>Cliente</th><th>Forma</th><th>Valor</th><th>Situação</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
       const desenhar = () => {
         const q = el2.querySelector("#busca").value.toLowerCase().trim();
@@ -1147,6 +1171,20 @@ MODULOS.financeiro = {
           <td>${FORMAS[x.forma]}</td><td><b>${brl(x.valor)}</b></td><td>${badgePag(x.status)}</td></tr>`).join("") : '<tr><td colspan="6" class="suave centro">Nenhum pagamento por aqui.</td></tr>';
       };
       el2.querySelector("#busca").oninput = desenhar; desenhar();
+      const lancar = el2.querySelector("#lancar");
+      if (lancar) lancar.onclick = async () => {
+        const os = await buscarOS(), sd = (o) => Math.max(o.total - o.pago, 0);
+        os.sort((a, b) => (sd(b) > 0.009) - (sd(a) > 0.009));
+        const m = modal("Lançar recebimento", `<div class="campo"><label>Ordem de serviço</label><select id="lm_os"><option value="">Selecione a OS…</option>
+          ${os.map((o) => `<option value="${o.id}">#${o.numero} · ${esc(o.clientes?.nome)} · ${esc(o.veiculos?.placa || "")} — ${sd(o) > 0.009 ? "saldo " + brl(sd(o)) : "quitada"}</option>`).join("")}</select></div>
+          <div class="acoes"><span style="flex:1"></span><button class="btn btn-sec" id="lm_cancel" type="button">Cancelar</button><button class="btn" id="lm_ok" type="button">Continuar</button></div>`);
+        m.querySelector("#lm_cancel").onclick = m.fechar;
+        m.querySelector("#lm_ok").onclick = () => {
+          const o = os.find((x) => x.id === m.querySelector("#lm_os").value);
+          if (!o) { toast("Escolha a ordem de serviço.", "erro"); return; }
+          m.fechar(); receberOS(o, () => abrirAba("recebimentos"));
+        };
+      };
     };
 
     // ---------------- DESPESAS ----------------
