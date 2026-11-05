@@ -215,8 +215,8 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
         <h1>Bem-vindo de volta</h1>
         <p class="suave">Entre para acessar o sistema da oficina</p>
         <form id="form-login">
-          <label for="email">E-mail</label>
-          <input id="email" type="email" autocomplete="username" required>
+          <label for="email">Usuário</label>
+          <input id="email" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ex.: marcelo" required>
           <label for="senha">Senha</label>
           <input id="senha" type="password" autocomplete="current-password" required>
           <p id="msg" class="msg-erro" role="alert"></p>
@@ -260,6 +260,10 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 window.CONFIG = {
   NOME_OFICINA: "MW Automotive",
   SLOGAN: "Mecânica • Elétrica • Ar-condicionado",
+
+  // Login por usuário: o sistema monta o e-mail "usuario@DOMINIO_LOGIN" por trás dos panos.
+  // Use um domínio que exista (o da sua oficina, por exemplo). Ninguém recebe e-mail nele.
+  DOMINIO_LOGIN: "mwautomotive.com.br",
 
   // Texto padrão do rodapé do orçamento/OS (pode ser trocado em Configurações)
   TERMOS: "Valores sujeitos a alteração caso sejam encontrados problemas adicionais, mediante aprovação do cliente. A garantia cobre os serviços e peças descritos, nos prazos informados.",
@@ -334,9 +338,17 @@ function mostrarLogin(aviso) {
   }
 }
 
+// "Marcelo" vira marcelo@dominio. Quem digitar um e-mail completo (com @) continua entrando normalmente.
+function emailDoLogin(texto) {
+  const t = (texto || "").trim().toLowerCase();
+  if (t.includes("@")) return t;
+  const u = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
+  return u + "@" + (CONFIG.DOMINIO_LOGIN || "mwautomotive.com.br");
+}
+
 function traduzirErro(m) {
-  if (/invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
-  if (/email not confirmed/i.test(m)) return "E-mail ainda não confirmado.";
+  if (/invalid login credentials/i.test(m)) return "Usuário ou senha incorretos.";
+  if (/email not confirmed/i.test(m)) return "Usuário ainda não liberado. Peça ao responsável para marcar 'Auto Confirm User' no cadastro.";
   return "Não foi possível entrar: " + m;
 }
 
@@ -346,7 +358,7 @@ document.getElementById("form-login").addEventListener("submit", async (e) => {
   const msg = document.getElementById("msg");
   btn.disabled = true; btn.textContent = "Entrando..."; msg.textContent = "";
   const { error } = await sb.auth.signInWithPassword({
-    email: document.getElementById("email").value.trim(),
+    email: emailDoLogin(document.getElementById("email").value),
     password: document.getElementById("senha").value,
   });
   if (error) {
@@ -1528,6 +1540,7 @@ MODULOS.equipe = {
       const eu = p.id === ctx.usuario.id;
       return `<tr>
         <td><input type="text" value="${esc(p.nome)}" data-id="${p.id}" data-campo="nome"></td>
+        <td><b>${esc(p.usuario || "—")}</b></td>
         <td><select data-id="${p.id}" data-campo="papel" ${eu ? "disabled" : ""}>
           ${papeis.map(([v, r]) => `<option value="${v}" ${p.papel === v ? "selected" : ""}>${r}</option>`).join("")}
         </select></td>
@@ -1536,11 +1549,11 @@ MODULOS.equipe = {
     }).join("");
 
     el.innerHTML = `
-      <div class="aviso">Para adicionar uma pessoa: no Supabase, vá em <strong>Authentication → Users → Add user</strong>.
-      Ela aparecerá aqui como <em>Atendente</em> e você ajusta o papel.</div>
+      <div class="aviso"><b>Como adicionar uma pessoa:</b> no Supabase, vá em <b>Authentication → Users → Add user</b>. Em <i>Email</i> coloque <b>usuario@${esc(CONFIG.DOMINIO_LOGIN || "")}</b> (ex.: <i>joao@${esc(CONFIG.DOMINIO_LOGIN || "")}</i>, sem espaços nem acentos), defina a senha e marque <b>Auto Confirm User</b>.
+      Para entrar, a pessoa digita só o usuário (<i>joao</i>) e a senha. Ela aparecerá aqui como <i>Atendente</i> e você ajusta o papel.</div>
       <div class="tabela-wrap" id="tabela-equipe">
         <table class="tabela">
-          <thead><tr><th>Nome</th><th>Papel</th><th class="centro">Ativo</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Usuário (login)</th><th>Papel</th><th class="centro">Ativo</th></tr></thead>
           <tbody>${linhas}</tbody>
         </table>
       </div>`;
