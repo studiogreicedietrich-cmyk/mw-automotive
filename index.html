@@ -159,6 +159,21 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .acoes-linha{white-space:nowrap;text-align:right}
 .mini{padding:6px 11px;margin-left:6px;border-radius:8px;border:1px solid var(--borda);background:rgba(255,255,255,.06);color:var(--texto);font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;transition:.15s}
 .mini:hover{filter:brightness(1.25)}.mini.zap{background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.5);color:#4be08a}
+.sel-oculto{display:none!important}
+.busca-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:12px 14px;border:1px solid var(--borda);border-radius:12px;background:rgba(255,255,255,.05);color:var(--texto);font:inherit;text-align:left;cursor:pointer;transition:.15s}
+.busca-btn:hover{border-color:var(--amarelo)}.busca-btn:disabled{opacity:.6;cursor:not-allowed;border-color:var(--borda)}
+.busca-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.busca-btn .vazio-txt{color:var(--suave)}
+.busca-btn svg{width:18px;height:18px;flex:none;color:var(--suave)}
+.itens .busca-btn{padding:8px 10px;min-width:190px}
+.busca-fundo{z-index:60;padding-top:8vh}.modal.busca{max-width:560px}
+.busca-corpo{padding:14px 18px 18px}
+.busca-lista{margin-top:12px;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.busca-op{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px 14px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.busca-op:hover,.busca-op.ativo{background:rgba(252,211,74,.1);border-color:rgba(252,211,74,.35)}
+.busca-op.atual{color:var(--amarelo);font-weight:700}.busca-op.limpar{color:var(--suave);font-style:italic}
+.busca-op small{color:var(--suave);white-space:nowrap}
+.busca-msg{padding:18px;text-align:center;color:var(--suave)}
+@media(max-width:860px){.busca-fundo{padding-top:0}.modal.busca{min-height:100vh}.busca-lista{max-height:calc(100vh - 170px)}}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -418,6 +433,7 @@ window.modal = (titulo, corpo, largo) => {
   d.className = "modal-fundo";
   d.innerHTML = `<div class="modal ${largo ? "largo" : ""}"><header><h3>${esc(titulo)}</h3><button class="x" type="button" aria-label="Fechar">×</button></header><div class="modal-corpo">${corpo}</div></div>`;
   document.body.appendChild(d);
+  ativarBuscas(d);
   d.fechar = () => d.remove();
   d.querySelector(".x").onclick = d.fechar;
   d.addEventListener("mousedown", (e) => { if (e.target === d) d.fechar(); });
@@ -434,7 +450,7 @@ function campoHtml(c, v, extra) {
   if (c.tipo === "textarea") ctl = `<textarea id="${id}" rows="${c.linhas || 3}">${esc(val)}</textarea>`;
   else if (c.tipo === "select") {
     const ops = typeof c.opcoes === "function" ? c.opcoes(extra) : c.opcoes;
-    ctl = `<select id="${id}"><option value="">Selecione…</option>${ops.map(([a, b]) =>
+    ctl = `<select id="${id}"${c.busca ? " data-busca" : ""}><option value="">Selecione…</option>${ops.map(([a, b]) =>
       `<option value="${esc(a)}" ${String(a) === String(val) ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>`;
   } else ctl = `<input id="${id}" type="${c.tipo || "text"}" value="${esc(val)}">`;
   return `<div class="campo ${c.larga ? "larga" : ""}"><label for="${id}">${esc(c.t)}${c.req ? " *" : ""}</label>${ctl}</div>`;
@@ -523,7 +539,7 @@ MODULOS.veiculos = crud({
     { t: "Veículo", f: (l) => esc([l.marca, l.modelo, l.ano].filter(Boolean).join(" ")) },
     { t: "Cliente", f: (l) => esc(l.clientes?.nome || "") }, { t: "KM", f: (l) => (l.km_atual != null ? Number(l.km_atual).toLocaleString("pt-BR") : "") }],
   campos: [
-    { k: "cliente_id", t: "Cliente", tipo: "select", req: true, larga: true, opcoes: (x) => x.clientes.map((c) => [c.id, c.nome]) },
+    { k: "cliente_id", t: "Cliente", tipo: "select", req: true, larga: true, busca: true, opcoes: (x) => x.clientes.map((c) => [c.id, c.nome]) },
     { k: "placa", t: "Placa", req: true, up: true }, { k: "marca", t: "Marca" }, { k: "modelo", t: "Modelo" },
     { k: "ano", t: "Ano", tipo: "number" }, { k: "cor", t: "Cor" }, { k: "km_atual", t: "KM atual", tipo: "number" },
     { k: "chassi", t: "Chassi", up: true }, { k: "observacoes", t: "Observações", tipo: "textarea", larga: true },
@@ -601,8 +617,8 @@ MODULOS.os = {
 
       const m = modal(os ? `Ordem de serviço #${o.numero}` : "Nova ordem de serviço", `
         <div class="grade-form">
-          <div class="campo"><label>Cliente *</label><select id="f_cliente">${opt(clientes.map((c) => [c.id, c.nome]), o.cliente_id, "Selecione…")}</select></div>
-          <div class="campo"><label>Veículo *</label><select id="f_veiculo">${opt(opsVeic(o.cliente_id), o.veiculo_id, "Selecione o cliente primeiro")}</select></div>
+          <div class="campo"><label>Cliente *</label><select id="f_cliente" data-busca>${opt(clientes.map((c) => [c.id, c.nome]), o.cliente_id, "Selecione…")}</select></div>
+          <div class="campo"><label>Veículo *</label><select id="f_veiculo" data-busca>${opt(opsVeic(o.cliente_id), o.veiculo_id, "Selecione o cliente primeiro")}</select></div>
           <div class="campo"><label>Mecânico</label><select id="f_mecanico">${opt(mecs.map((x) => [x.id, x.nome]), o.mecanico_id, "Sem mecânico")}</select></div>
           <div class="campo"><label>Status</label><select id="f_status">${opt(statusOps, o.status || "orcamento")}</select></div>
           <div class="campo"><label>KM de entrada</label><input id="f_km" type="number" value="${o.km_entrada ?? ""}"></div>
@@ -627,8 +643,8 @@ MODULOS.os = {
 
       const $ = (s) => m.querySelector(s);
       const pick = (it) => `<option value="">— Avulso —</option>` + (it.tipo === "servico"
-        ? servicos.map((s) => `<option value="s:${s.id}" ${it.servico_id === s.id ? "selected" : ""}>${esc(s.nome)}</option>`).join("")
-        : produtos.map((p) => `<option value="p:${p.id}" ${it.produto_id === p.id ? "selected" : ""}>${esc((p.codigo ? p.codigo + " · " : "") + p.nome)} (estoque ${p.qtd_estoque})</option>`).join(""));
+        ? servicos.map((s) => `<option value="s:${s.id}" ${it.servico_id === s.id ? "selected" : ""}data-sub="${brl(s.preco_padrao)}">${esc(s.nome)}</option>`).join("")
+        : produtos.map((p) => `<option value="p:${p.id}" ${it.produto_id === p.id ? "selected" : ""}data-sub="${brl(p.preco_venda)} · estoque ${p.qtd_estoque}">${esc((p.codigo ? p.codigo + " · " : "") + p.nome)}</option>`).join(""));
       const calc = () => {
         const sub = itens.reduce((s, i) => s + Number(i.quantidade || 0) * Number(i.valor_unitario || 0), 0);
         const total = sub - Number($("#f_desc").value || 0);
@@ -644,12 +660,13 @@ MODULOS.os = {
       };
       const linhasItens = () => {
         $("#itens").innerHTML = itens.length ? itens.map((it, i) => `<tr data-i="${i}"><td>${it.tipo === "servico" ? "Serviço" : "Peça"}</td>
-          <td><select data-c="pick">${pick(it)}</select></td><td><input data-c="descricao" value="${esc(it.descricao)}"></td>
+          <td><select data-c="pick" data-busca data-titulo="${it.tipo === "servico" ? "Buscar serviço" : "Buscar peça"}">${pick(it)}</select></td><td><input data-c="descricao" value="${esc(it.descricao)}"></td>
           <td><input class="num" data-c="quantidade" type="number" step="0.01" min="0.01" value="${it.quantidade}"></td>
           <td><input class="num" data-c="valor_unitario" type="number" step="0.01" min="0" value="${it.valor_unitario}"></td>
           <td>${it.produto_id || it.servico_id ? `<span class="suave" title="Definida no cadastro">${garTxt(it)}</span>` : `<input class="num" data-c="garantia_dias" type="number" min="0" placeholder="dias" value="${it.garantia_dias ?? ""}">`}</td>
           <td class="tot"></td><td><button class="x-linha" data-c="rem" type="button" aria-label="Remover">×</button></td></tr>`).join("")
           : '<tr><td colspan="8" class="suave centro">Nenhum item ainda. Use os botões abaixo.</td></tr>';
+        ativarBuscas($("#itens"));
         calc();
       };
       const novoItem = (tipo) => { itens.push({ tipo, produto_id: null, servico_id: null, descricao: "", quantidade: 1, valor_unitario: 0, garantia_dias: null, garantia_km: null }); linhasItens(); };
@@ -671,7 +688,7 @@ MODULOS.os = {
       });
       $("#itens").addEventListener("click", (e) => { if (e.target.dataset.c === "rem") { itens.splice(e.target.closest("tr").dataset.i, 1); linhasItens(); } });
       $("#f_desc").oninput = calc;
-      $("#f_cliente").onchange = (e) => { $("#f_veiculo").innerHTML = opt(opsVeic(e.target.value), "", e.target.value ? "Selecione…" : "Selecione o cliente primeiro"); };
+      $("#f_cliente").onchange = (e) => { const ops = opsVeic(e.target.value); $("#f_veiculo").innerHTML = opt(ops, ops.length === 1 ? ops[0][0] : "", e.target.value ? "Selecione…" : "Selecione o cliente primeiro"); };
       $("#cancelar").onclick = m.fechar;
       if (os) {
         const montarDoc = async () => {
@@ -1176,7 +1193,7 @@ MODULOS.financeiro = {
       if (lancar) lancar.onclick = async () => {
         const os = await buscarOS(), sd = (o) => Math.max(o.total - o.pago, 0);
         os.sort((a, b) => (sd(b) > 0.009) - (sd(a) > 0.009));
-        const m = modal("Lançar recebimento", `<div class="campo"><label>Ordem de serviço</label><select id="lm_os"><option value="">Selecione a OS…</option>
+        const m = modal("Lançar recebimento", `<div class="campo"><label>Ordem de serviço</label><select id="lm_os" data-busca><option value="">Selecione a OS…</option>
           ${os.map((o) => `<option value="${o.id}">#${o.numero} · ${esc(o.clientes?.nome)} · ${esc(o.veiculos?.placa || "")} — ${sd(o) > 0.009 ? "saldo " + brl(sd(o)) : "quitada"}</option>`).join("")}</select></div>
           <div class="acoes"><span style="flex:1"></span><button class="btn btn-sec" id="lm_cancel" type="button">Cancelar</button><button class="btn" id="lm_ok" type="button">Continuar</button></div>`);
         m.querySelector("#lm_cancel").onclick = m.fechar;
@@ -1240,7 +1257,7 @@ MODULOS.financeiro = {
 const garTxt = (it) => [it.garantia_dias ? it.garantia_dias + " dias" : "", it.garantia_km ? nBR(it.garantia_km) + " km" : ""].filter(Boolean).join(" / ") || "Sem garantia";
 const STATUS_LEMB = { pendente: ["Pendente", "#fcd34a"], enviado: ["Aviso enviado", "#5cc8ff"], concluido: ["Concluído", "#46d39a"], cancelado: ["Cancelado", "#9db0ac"] };
 const CAMPOS_LEMB = [
-  { k: "veiculo_id", t: "Veículo", tipo: "select", req: true, larga: true, opcoes: (x) => x.veiculos.map((v) => [v.id, `${v.placa} · ${[v.marca, v.modelo].filter(Boolean).join(" ")} · ${v.clientes?.nome || ""}`]) },
+  { k: "veiculo_id", t: "Veículo", tipo: "select", req: true, larga: true, busca: true, opcoes: (x) => x.veiculos.map((v) => [v.id, `${v.placa} · ${[v.marca, v.modelo].filter(Boolean).join(" ")} · ${v.clientes?.nome || ""}`]) },
   { k: "descricao", t: "O que lembrar (ex.: troca de óleo)", req: true, larga: true },
   { k: "data_prevista", t: "Data prevista", tipo: "date" }, { k: "km_previsto", t: "KM previsto", tipo: "number" },
   { k: "status", t: "Situação", tipo: "select", opcoes: Object.entries(STATUS_LEMB).map(([k, v]) => [k, v[0]]) },
@@ -1438,6 +1455,67 @@ MODULOS.configuracoes = {
     };
   },
 };
+
+// ===================== CAMPO DE SELEÇÃO COM PESQUISA =====================
+const normBusca = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const SETA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+// Troca qualquer <select data-busca> por um botão que abre uma janela de pesquisa.
+// O <select> original continua existindo (escondido), então o resto do sistema não muda.
+function ativarBuscas(raiz) {
+  raiz.querySelectorAll("select[data-busca]:not([data-ativo])").forEach((sel) => {
+    sel.dataset.ativo = "1"; sel.classList.add("sel-oculto");
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "busca-btn"; sel.after(btn);
+    const atualizar = () => {
+      const o = sel.selectedOptions[0], txt = o && o.value ? o.textContent : "";
+      const ph = sel.options[0] && !sel.options[0].value ? sel.options[0].textContent : "Selecionar…";
+      btn.innerHTML = `<span class="${txt ? "" : "vazio-txt"}">${esc(txt || ph)}</span>${SETA}`;
+      btn.disabled = sel.disabled;
+    };
+    atualizar();
+    new MutationObserver(atualizar).observe(sel, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "selected"] });
+    sel.addEventListener("change", atualizar);
+    btn.onclick = () => abrirBusca(sel);
+  });
+}
+
+function abrirBusca(sel) {
+  const todas = [...sel.options].map((o) => ({ v: o.value, t: o.textContent, sub: o.dataset.sub || "" }));
+  const vazio = todas.find((o) => o.v === ""), itens = todas.filter((o) => o.v !== "");
+  const titulo = sel.dataset.titulo || (sel.closest(".campo")?.querySelector("label")?.textContent || "Selecionar").replace(/\s*\*$/, "");
+  const d = document.createElement("div");
+  d.className = "modal-fundo busca-fundo";
+  d.innerHTML = `<div class="modal busca"><header><h3>${esc(titulo)}</h3><button class="x" type="button" aria-label="Fechar">×</button></header>
+    <div class="busca-corpo"><input class="busca-input" type="search" placeholder="Digite para pesquisar…" autocomplete="off"><div class="busca-lista" role="listbox"></div></div></div>`;
+  document.body.appendChild(d);
+  const input = d.querySelector(".busca-input"), lista = d.querySelector(".busca-lista");
+  let ativo = 0, vis = [];
+  const fechar = () => d.remove();
+  const escolher = (v) => { sel.value = v; sel.dispatchEvent(new Event("change", { bubbles: true })); fechar(); };
+  const desenhar = () => {
+    const palavras = normBusca(input.value).split(/\s+/).filter(Boolean);
+    const achados = itens.filter((o) => palavras.every((p) => normBusca(o.t + " " + o.sub).includes(p)));
+    vis = achados.slice(0, 100);
+    if (sel.value && vazio && !palavras.length) vis = [{ v: "", t: vazio.t === "Selecione…" ? "Limpar seleção" : vazio.t, limpar: true }, ...vis];
+    ativo = Math.min(ativo, Math.max(vis.length - 1, 0));
+    lista.innerHTML = vis.length
+      ? vis.map((o, i) => `<div class="busca-op ${i === ativo ? "ativo" : ""} ${o.v && o.v === sel.value ? "atual" : ""} ${o.limpar ? "limpar" : ""}" data-i="${i}"><span>${esc(o.t)}</span>${o.sub ? `<small>${esc(o.sub)}</small>` : ""}</div>`).join("")
+      : `<div class="busca-msg">${itens.length ? "Nada encontrado para essa pesquisa." : esc(vazio ? vazio.t : "Nenhum item disponível.")}</div>`;
+    if (achados.length > 100) lista.insertAdjacentHTML("beforeend", '<div class="busca-msg">Mostrando os 100 primeiros. Refine a pesquisa.</div>');
+    const a = lista.querySelector(".busca-op.ativo"); if (a) a.scrollIntoView({ block: "nearest" });
+  };
+  input.oninput = () => { ativo = 0; desenhar(); };
+  input.onkeydown = (e) => {
+    if (e.key === "Escape") { e.stopPropagation(); fechar(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); ativo = Math.min(ativo + 1, vis.length - 1); desenhar(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); ativo = Math.max(ativo - 1, 0); desenhar(); }
+    else if (e.key === "Enter") { e.preventDefault(); if (vis[ativo]) escolher(vis[ativo].v); }
+  };
+  lista.onclick = (e) => { const op = e.target.closest(".busca-op"); if (op) escolher(vis[op.dataset.i].v); };
+  d.querySelector(".x").onclick = fechar;
+  d.addEventListener("mousedown", (e) => { if (e.target === d) fechar(); });
+  desenhar(); input.focus();
+}
 
 // Equipe: o dono define o papel de cada pessoa e ativa/desativa acessos
 MODULOS.equipe = {
