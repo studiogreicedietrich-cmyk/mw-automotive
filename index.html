@@ -522,6 +522,7 @@ function crud(cfg) {
           <div class="acoes">${reg && ctx.perfil.papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir</button>' : ""}
           <span style="flex:1"></span><button class="btn btn-sec" id="cancelar" type="button">Cancelar</button><button class="btn" id="salvar" type="button">Salvar</button></div>`);
         m.querySelector("#cancelar").onclick = m.fechar;
+        if (cfg.aoAbrir && reg) cfg.aoAbrir(m, reg);
         m.querySelector("#salvar").onclick = async () => {
           const dados = lerCampos(cfg.campos, m);
           if (cfg.antes) cfg.antes(dados);
@@ -1559,16 +1560,17 @@ const totalCompra = (c, itens) => itens.reduce((s, i) => s + Number(i.quantidade
 const comprasUI = {
   async render(el, ctx) {
     const dono = ctx.perfil.papel === "dono";
-    let linhas = [], produtos = [], periodo = "mes";
+    let linhas = [], produtos = [], fornecedores = [], periodo = "mes";
     const carregar = async () => {
       const { data, error } = await sb.from("compras").select("*, compra_itens(descricao, quantidade, custo_unitario, produto_id)")
         .order("data_compra", { ascending: false }).order("numero", { ascending: false }).limit(500);
       if (error) throw error; linhas = data;
     };
     const carregarProdutos = async () => { produtos = (await sb.from("produtos").select("id,nome,codigo,custo").eq("ativo", true).order("nome")).data || []; };
-    try { await Promise.all([carregar(), carregarProdutos()]); }
-    catch (e) { el.innerHTML = `<div class="aviso erro">Não consegui abrir as compras. Se for a primeira vez, rode o arquivo <b>07_compras.sql</b> no Supabase e recarregue.<br><span class="suave">${esc(e.message || e)}</span></div>`; return; }
-    const recarregar = async () => { await Promise.all([carregar(), carregarProdutos()]); desenhar(); };
+    const carregarForn = async () => { const r = await sb.from("fornecedores").select("id,nome,ativo").order("nome"); if (r.error) throw r.error; fornecedores = r.data || []; };
+    try { await Promise.all([carregar(), carregarProdutos(), carregarForn()]); }
+    catch (e) { el.innerHTML = `<div class="aviso erro">Não consegui abrir as compras. Se for a primeira vez, rode os arquivos <b>07_compras.sql</b> e <b>08_fornecedores.sql</b> no Supabase e recarregue.<br><span class="suave">${esc(e.message || e)}</span></div>`; return; }
+    const recarregar = async () => { await Promise.all([carregar(), carregarProdutos(), carregarForn()]); desenhar(); };
 
     el.innerHTML = `<div class="kpis" id="kp"></div>
       <div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar por fornecedor, nº da nota ou produto…"><button class="btn" id="nova" type="button">+ Nova compra</button></div>
@@ -1594,12 +1596,12 @@ const comprasUI = {
     };
 
     const abrir = (c) => {
-      const novo = !c, o = c || {}, fixos = o.compra_itens || [];
+      const novo = !c, o = c || {}, fixos = o.compra_itens || [], legado = !!o.fornecedor && !o.fornecedor_id;
       const itens = novo ? [{ produto_id: "", novo: false, nome: "", codigo: "", preco_venda: "", quantidade: 1, custo_unitario: 0 }] : [];
       const forn = [...new Set(linhas.map((x) => x.fornecedor))].sort();
       const m = modal(novo ? "Nova compra" : `Compra #${o.numero}${o.status === "cancelada" ? " · cancelada" : ""}`, `
         <div class="grade-form">
-          <div class="campo"><label for="cp_forn">Fornecedor *</label><input id="cp_forn" list="forn-lista" autocomplete="off" value="${esc(o.fornecedor)}"><datalist id="forn-lista">${forn.map((f) => `<option value="${esc(f)}">`).join("")}</datalist></div>
+          <div class="campo"><label for="cp_forn">Fornecedor *</label><select id="cp_forn" data-busca data-titulo="Buscar fornecedor"><option value="">Selecione…</option><option value="novo" ${legado ? "selected" : ""}>➕ Cadastrar fornecedor novo</option>${fornecedores.filter((f) => f.ativo || f.id === o.fornecedor_id).map((f) => `<option value="${f.id}" ${f.id === o.fornecedor_id ? "selected" : ""}>${esc(f.nome)}</option>`).join("")}</select><input id="cp_forn_novo" placeholder="Nome do novo fornecedor" value="${esc(legado ? o.fornecedor : "")}" ${legado ? "" : "hidden"} style="margin-top:6px"></div>
           <div class="campo"><label for="cp_data">Data da compra *</label><input id="cp_data" type="date" value="${o.data_compra || hojeISO()}"></div>
           <div class="campo"><label for="cp_tipo">Documento</label><select id="cp_tipo">${TIPOS_DOC.map(([k, t]) => `<option value="${k}" ${k === (o.documento_tipo || "nota_fiscal") ? "selected" : ""}>${t}</option>`).join("")}</select></div>
           <div class="campo"><label for="cp_num">Número do documento</label><input id="cp_num" value="${esc(o.documento_numero)}"></div>
@@ -1627,6 +1629,7 @@ const comprasUI = {
         m.querySelectorAll("#cp_itens tr[data-i] .tot").forEach((td) => { const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * i.custo_unitario); });
       };
       $("#cp_fechar").onclick = m.fechar; $("#cp_frete").oninput = calc; $("#cp_desc").oninput = calc;
+      $("#cp_forn").onchange = (e) => { $("#cp_forn_novo").hidden = e.target.value !== "novo"; if (e.target.value === "novo") $("#cp_forn_novo").focus(); };
       if ($("#cp_fin")) $("#cp_fin").onchange = (e) => ($("#cp_venc_box").hidden = e.target.value !== "pagar");
 
       if (novo) {
@@ -1672,8 +1675,10 @@ const comprasUI = {
 
       const salvar = $("#cp_salvar");
       if (salvar) salvar.onclick = async () => {
-        const fornecedor = $("#cp_forn").value.trim();
-        if (!fornecedor) { toast("Informe o fornecedor.", "erro"); return; }
+        const selF = $("#cp_forn").value; let fornecedor = "", fornecedorId = null;
+        if (selF === "novo") fornecedor = $("#cp_forn_novo").value.trim();
+        else if (selF) { const fo = fornecedores.find((x) => x.id === selF); fornecedor = fo ? fo.nome : ""; fornecedorId = selF; }
+        if (!fornecedor) { toast("Escolha o fornecedor (ou cadastre um novo).", "erro"); return; }
         if (novo) {
           if (!itens.length) { toast("Adicione pelo menos um item.", "erro"); return; }
           for (const it of itens) {
@@ -1690,6 +1695,12 @@ const comprasUI = {
         if (f && f.size > 8 * 1024 * 1024) { toast("O anexo passa de 8 MB. Use uma foto menor ou um PDF mais leve.", "erro"); return; }
         salvar.disabled = true;
         try {
+          if (selF === "novo") {
+            const ex = fornecedores.find((x) => normBusca(x.nome) === normBusca(fornecedor));
+            if (ex) fornecedorId = ex.id;
+            else { const rf = await sb.from("fornecedores").insert({ nome: fornecedor }).select("id").single(); if (rf.error) throw rf.error; fornecedorId = rf.data.id; fornecedores.push({ id: fornecedorId, nome: fornecedor, ativo: true }); }
+          }
+          cab.fornecedor_id = fornecedorId;
           if (f) {
             const caminho = `${crypto.randomUUID()}/${f.name.normalize("NFD").replace(/[^\w.\-]+/g, "_")}`;
             const up = await sb.storage.from("notas-compras").upload(caminho, f, { contentType: f.type }); if (up.error) throw up.error;
@@ -1736,6 +1747,37 @@ MODULOS.pecas = estoquePecas;
 MODULOS.compras = comprasUI;
 ["resumo", "receber", "recebimentos", "despesas"].forEach((a) => {
   MODULOS["fin-" + a] = { render: (el, ctx) => MODULOS.financeiro.render(el, ctx, a) };
+});
+
+// ===================== CADASTRO DE FORNECEDORES =====================
+MODULOS.fornecedores = crud({
+  tabela: "fornecedores", titulo: "Fornecedores", singular: "fornecedor", ordem: "nome",
+  colunas: [
+    { t: "Fornecedor", f: (l) => `<strong>${esc(l.nome)}</strong>${l.ativo ? "" : ' <span class="badge" style="--cor:#9db0ac">Inativo</span>'}${l.contato ? `<br><span class="suave">${esc(l.contato)}</span>` : ""}` },
+    { t: "WhatsApp", f: (l) => linkZap(l.whatsapp) }, { k: "telefone", t: "Telefone" }, { k: "cnpj_cpf", t: "CNPJ/CPF" }, { k: "cidade", t: "Cidade" },
+  ],
+  campos: [
+    { k: "nome", t: "Nome do fornecedor", req: true, larga: true }, { k: "cnpj_cpf", t: "CNPJ ou CPF" }, { k: "contato", t: "Pessoa de contato" },
+    { k: "telefone", t: "Telefone" }, { k: "whatsapp", t: "WhatsApp" }, { k: "email", t: "E-mail", tipo: "email" }, { k: "cidade", t: "Cidade" },
+    { k: "endereco", t: "Endereço", larga: true }, { k: "observacoes", t: "Observações", tipo: "textarea", larga: true },
+    { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
+  ],
+  antes: (d) => { d.ativo = d.ativo !== "false"; },
+  // Mostra, dentro do cadastro, o histórico de compras feitas neste fornecedor
+  aoAbrir: async (m, reg) => {
+    const alvo = document.createElement("div");
+    alvo.innerHTML = '<h4>Compras deste fornecedor</h4><p class="suave">Carregando…</p>';
+    m.querySelector(".modal-corpo").appendChild(alvo);
+    const { data, error } = await sb.from("compras").select("numero,data_compra,documento_tipo,documento_numero,frete,desconto,status,compra_itens(quantidade,custo_unitario)")
+      .eq("fornecedor_id", reg.id).order("data_compra", { ascending: false }).limit(20);
+    if (error || !data) { alvo.innerHTML = '<h4>Compras deste fornecedor</h4><p class="suave">Indisponível (rode o 08_fornecedores.sql).</p>'; return; }
+    const tot = (c) => totalCompra(c, c.compra_itens || []), gasto = data.filter((c) => c.status === "ativa").reduce((s, c) => s + tot(c), 0);
+    alvo.innerHTML = `<h4>Compras deste fornecedor</h4>` + (data.length
+      ? `<p class="suave" style="margin-bottom:8px">${data.filter((c) => c.status === "ativa").length} compra(s) ativa(s) · total gasto <b style="color:var(--amarelo)">${brl(gasto)}</b></p>
+         <div class="tabela-wrap"><table class="tabela" style="min-width:0"><tbody>${data.map((c) => `<tr><td>${dataBR(c.data_compra)}</td><td>${esc(rotuloDoc(c.documento_tipo))}${c.documento_numero ? " nº " + esc(c.documento_numero) : ""} <span class="suave">#${c.numero}</span></td>
+           <td><b>${brl(tot(c))}</b></td><td>${c.status === "cancelada" ? badgeCor("Cancelada", "#ff6b5e") : ""}</td></tr>`).join("")}</tbody></table></div>`
+      : '<p class="suave">Nenhuma compra registrada para este fornecedor ainda.</p>');
+  },
 });
 
 // Equipe: o dono cria usuários, define papéis, troca senhas e ativa/desativa acessos
@@ -1836,6 +1878,7 @@ const MENU = [
     { id: "clientes", rotulo: "Clientes", papeis: ["dono", "atendente"] },
     { id: "veiculos", rotulo: "Veículos", papeis: ["dono", "atendente"] },
     { id: "servicos", rotulo: "Serviços", papeis: ["dono", "atendente"] },
+    { id: "fornecedores", rotulo: "Fornecedores", papeis: ["dono", "atendente"] },
   ] },
   { id: "estoque", rotulo: "Estoque", filhos: [
     { id: "pecas", rotulo: "Peças", papeis: ["dono", "atendente", "mecanico"] },
