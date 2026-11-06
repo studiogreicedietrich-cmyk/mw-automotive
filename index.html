@@ -130,7 +130,7 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .tabela.itens{min-width:880px}.itens td{padding:6px 8px}.itens input,.itens select{padding:8px 10px}.itens .num{width:92px}
 .x-linha{background:none;border:0;color:var(--erro);font-size:1.5rem;line-height:1;cursor:pointer}
 .acoes-item{display:flex;gap:10px;margin:12px 0}.acoes-item .btn{padding:9px 14px}
-.totais{margin:18px 0 0 auto;max-width:320px;display:grid;gap:5px}.totais div{display:flex;justify-content:space-between}
+.totais{margin:18px 0 0 auto;max-width:360px;display:grid;gap:5px}.totais div{display:flex;justify-content:space-between}
 .totais .geral{font-size:1.35rem;font-weight:800;color:var(--amarelo);border-top:1px solid var(--borda);padding-top:8px}
 @media(max-width:860px){.grade-form{grid-template-columns:1fr}.modal-fundo{padding:0}.modal{border-radius:0;min-height:100vh}.modal-corpo{padding:6px 14px 24px}}
 
@@ -175,6 +175,8 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .busca-msg{padding:18px;text-align:center;color:var(--suave)}
 @media(max-width:860px){.busca-fundo{padding-top:0}.modal.busca{min-height:100vh}.busca-lista{max-height:calc(100vh - 170px)}}
 .linha-senha{display:flex;gap:8px}.linha-senha .btn{white-space:nowrap;padding:10px 14px}
+.novo-prod{display:grid;grid-template-columns:2fr 1fr 110px;gap:6px;margin-top:6px}.novo-prod input{padding:8px 10px}
+.tabela.itens.itens-compra{min-width:700px}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -883,7 +885,7 @@ const CAMPOS_PRODUTO = [
   { k: "garantia_dias", t: "Garantia da peça (dias)", tipo: "number" }, { k: "garantia_km", t: "Garantia da peça (km)", tipo: "number" },
 ];
 
-MODULOS.estoque = {
+const estoquePecas = {
   async render(el, ctx) {
     const papel = ctx.perfil.papel, editar = ["dono", "atendente"].includes(papel);
     let linhas = [], filtro = "todos";
@@ -932,7 +934,7 @@ MODULOS.estoque = {
             <div class="campo"><label id="mv_rot">Quantidade</label><input id="mv_qtd" type="number" min="0"></div>
             <div class="campo larga"><label>Motivo / observação</label><input id="mv_mot" placeholder="Ex.: compra na loja X, nota 1234"></div></div>
           <div class="acoes"><button class="btn" id="mv_ok" type="button">Registrar movimentação</button></div>
-          <h4>Últimas movimentações</h4><div id="hist"></div>`}`);
+          <h4>Últimas movimentações</h4><div id="hist"></div><h4>Histórico de compras</h4><div id="hist-compras"></div>`}`);
       const $ = (s) => m.querySelector(s);
       $("#cancelar").onclick = m.fechar;
       const mostrarAtual = () => { if ($("#estq-atual")) $("#estq-atual").textContent = `${nBR(cur.qtd_estoque)} ${cur.unidade}`; };
@@ -971,7 +973,14 @@ MODULOS.estoque = {
             <td class="${s >= 0 ? "pos" : "neg"}"><b>${s > 0 ? "+" : ""}${nBR(s)}</b></td><td class="suave">${esc(x.motivo || "")}${x.ordens_servico ? ` (OS #${x.ordens_servico.numero})` : ""}</td></tr>`;
         }).join("")}</tbody></table></div>` : '<p class="suave">Nenhuma movimentação ainda.</p>';
       };
-      hist();
+      const histCompras = async () => {
+        const { data, error } = await sb.from("compra_itens").select("quantidade, custo_unitario, compras(numero, data_compra, fornecedor, status)").eq("produto_id", p.id).limit(60);
+        const lista = (data || []).filter((x) => x.compras).sort((a, b) => b.compras.data_compra.localeCompare(a.compras.data_compra));
+        $("#hist-compras").innerHTML = error ? '<p class="suave">Histórico de compras indisponível (rode o 07_compras.sql).</p>' : lista.length
+          ? `<div class="tabela-wrap"><table class="tabela" style="min-width:0"><thead><tr><th>Data</th><th>Fornecedor</th><th>Qtd</th><th>Custo un.</th><th></th></tr></thead><tbody>${lista.map((x) => `<tr><td>${dataBR(x.compras.data_compra)}</td><td>${esc(x.compras.fornecedor)} <span class="suave">#${x.compras.numero}</span></td><td>${nBR(x.quantidade)}</td><td><b>${brl(x.custo_unitario)}</b></td><td>${x.compras.status === "cancelada" ? badgeCor("Cancelada", "#ff6b5e") : ""}</td></tr>`).join("")}</tbody></table></div>`
+          : '<p class="suave">Esta peça ainda não tem compras registradas.</p>';
+      };
+      hist(); histCompras();
       $("#mv_ok").onclick = async () => {
         const tipo = $("#mv_tipo").value, q = Number($("#mv_qtd").value), vazio = $("#mv_qtd").value === "";
         let quantidade = q;
@@ -1529,6 +1538,203 @@ function abrirBusca(sel) {
   d.addEventListener("mousedown", (e) => { if (e.target === d) fechar(); });
   desenhar(); input.focus();
 }
+
+// ===================== COMPRAS (notas fiscais, cupons e recibos) =====================
+const TIPOS_DOC = [["nota_fiscal", "Nota fiscal"], ["cupom", "Cupom fiscal"], ["recibo", "Recibo"], ["outro", "Outro"]];
+const rotuloDoc = (t) => (TIPOS_DOC.find((x) => x[0] === t) || [0, t])[1];
+const totalCompra = (c, itens) => itens.reduce((s, i) => s + Number(i.quantidade) * Number(i.custo_unitario), 0) + Number(c.frete || 0) - Number(c.desconto || 0);
+
+const comprasUI = {
+  async render(el, ctx) {
+    const dono = ctx.perfil.papel === "dono";
+    let linhas = [], produtos = [], periodo = "mes";
+    const carregar = async () => {
+      const { data, error } = await sb.from("compras").select("*, compra_itens(descricao, quantidade, custo_unitario, produto_id)")
+        .order("data_compra", { ascending: false }).order("numero", { ascending: false }).limit(500);
+      if (error) throw error; linhas = data;
+    };
+    const carregarProdutos = async () => { produtos = (await sb.from("produtos").select("id,nome,codigo,custo").eq("ativo", true).order("nome")).data || []; };
+    try { await Promise.all([carregar(), carregarProdutos()]); }
+    catch (e) { el.innerHTML = `<div class="aviso erro">Não consegui abrir as compras. Se for a primeira vez, rode o arquivo <b>07_compras.sql</b> no Supabase e recarregue.<br><span class="suave">${esc(e.message || e)}</span></div>`; return; }
+    const recarregar = async () => { await Promise.all([carregar(), carregarProdutos()]); desenhar(); };
+
+    el.innerHTML = `<div class="kpis" id="kp"></div>
+      <div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar por fornecedor, nº da nota ou produto…"><button class="btn" id="nova" type="button">+ Nova compra</button></div>
+      <div class="chips">${[["mes", "Este mês"], ["3m", "Últimos 3 meses"], ["ano", "Este ano"], ["tudo", "Tudo"]].map(([k, t]) => `<button class="chip ${k === periodo ? "ativo" : ""}" data-f="${k}" type="button">${t}</button>`).join("")}</div>
+      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Data</th><th>Documento</th><th>Fornecedor</th><th>Itens</th><th>Total</th><th>Situação</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
+    const corpo = el.querySelector("#corpo");
+    const desde = () => { const h = hojeISO(); if (periodo === "mes") return h.slice(0, 8) + "01"; if (periodo === "ano") return h.slice(0, 4) + "-01-01";
+      if (periodo === "3m") { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 2); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-01`; } return ""; };
+    const desenhar = () => {
+      const q = normBusca(el.querySelector("#busca").value), ini = desde();
+      const vis = linhas.filter((c) => c.data_compra >= ini && (!q || normBusca(`${c.fornecedor} ${c.documento_numero} ${(c.compra_itens || []).map((i) => i.descricao).join(" ")}`).includes(q)));
+      const ativas = vis.filter((c) => c.status === "ativa"), tot = (c) => totalCompra(c, c.compra_itens || []);
+      const porForn = {}; ativas.forEach((c) => (porForn[c.fornecedor] = (porForn[c.fornecedor] || 0) + tot(c)));
+      const top = Object.entries(porForn).sort((a, b) => b[1] - a[1])[0];
+      el.querySelector("#kp").innerHTML = kpiHtml("Gasto no período", brl(ativas.reduce((s, c) => s + tot(c), 0)), "#ff9f45", "financeiro", true)
+        + kpiHtml("Notas e cupons registrados", ativas.length, "#fcd34a", "os")
+        + kpiHtml("Maior fornecedor", top ? `${esc(top[0])}<br><span style="font-size:1rem;color:var(--suave)">${brl(top[1])}</span>` : "—", "#5cc8ff", "estoque", true);
+      corpo.innerHTML = vis.length ? vis.map((c) => { const it = c.compra_itens || [];
+        return `<tr class="clicavel" data-id="${c.id}"><td>${dataBR(c.data_compra)}</td><td>${esc(rotuloDoc(c.documento_tipo))}${c.documento_numero ? " nº " + esc(c.documento_numero) : ""} ${c.arquivo ? badgeCor("Anexo", "#5cc8ff") : ""}</td>
+          <td><b>${esc(c.fornecedor)}</b></td><td>${it.length} item(ns)<br><span class="suave">${esc(it.slice(0, 2).map((i) => i.descricao).join(", "))}${it.length > 2 ? "…" : ""}</span></td>
+          <td><b>${brl(tot(c))}</b></td><td>${c.status === "ativa" ? badgeCor("Ativa", "#46d39a") : badgeCor("Cancelada", "#ff6b5e")}</td></tr>`; }).join("")
+        : '<tr><td colspan="6" class="suave centro">Nenhuma compra neste período.</td></tr>';
+    };
+
+    const abrir = (c) => {
+      const novo = !c, o = c || {}, fixos = o.compra_itens || [];
+      const itens = novo ? [{ produto_id: "", novo: false, nome: "", codigo: "", preco_venda: "", quantidade: 1, custo_unitario: 0 }] : [];
+      const forn = [...new Set(linhas.map((x) => x.fornecedor))].sort();
+      const m = modal(novo ? "Nova compra" : `Compra #${o.numero}${o.status === "cancelada" ? " · cancelada" : ""}`, `
+        <div class="grade-form">
+          <div class="campo"><label for="cp_forn">Fornecedor *</label><input id="cp_forn" list="forn-lista" autocomplete="off" value="${esc(o.fornecedor)}"><datalist id="forn-lista">${forn.map((f) => `<option value="${esc(f)}">`).join("")}</datalist></div>
+          <div class="campo"><label for="cp_data">Data da compra *</label><input id="cp_data" type="date" value="${o.data_compra || hojeISO()}"></div>
+          <div class="campo"><label for="cp_tipo">Documento</label><select id="cp_tipo">${TIPOS_DOC.map(([k, t]) => `<option value="${k}" ${k === (o.documento_tipo || "nota_fiscal") ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+          <div class="campo"><label for="cp_num">Número do documento</label><input id="cp_num" value="${esc(o.documento_numero)}"></div>
+          <div class="campo larga"><label for="cp_chave">Chave de acesso da NF-e (44 números, opcional)</label><input id="cp_chave" inputmode="numeric" value="${esc(o.chave_acesso)}"></div>
+          <div class="campo"><label for="cp_forma">Forma de pagamento</label><select id="cp_forma"><option value="">Não informar</option>${Object.entries(FORMAS).map(([k, t]) => `<option value="${k}" ${k === o.forma_pagamento ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+          <div class="campo"><label for="cp_arq">Anexo (foto ou PDF da nota)</label><input id="cp_arq" type="file" accept="image/*,application/pdf">${o.arquivo ? '<button class="mini" id="cp_ver" type="button" style="margin:8px 0 0">Ver anexo atual</button>' : ""}</div>
+        </div>
+        <h4>Itens comprados</h4>
+        ${novo ? `<div class="tabela-wrap"><table class="tabela itens itens-compra"><thead><tr><th>Produto</th><th>Qtd</th><th>Custo un.</th><th>Total</th><th></th></tr></thead><tbody id="cp_itens"></tbody></table></div>
+          <div class="acoes-item"><button class="btn btn-sec" id="cp_add" type="button">+ Adicionar item</button></div>`
+        : `<div class="tabela-wrap"><table class="tabela" style="min-width:520px"><thead><tr><th>Produto</th><th>Qtd</th><th>Custo un.</th><th>Total</th></tr></thead><tbody>${fixos.map((i) => `<tr><td>${esc(i.descricao)}</td><td>${nBR(i.quantidade)}</td><td>${brl(i.custo_unitario)}</td><td>${brl(i.quantidade * i.custo_unitario)}</td></tr>`).join("")}</tbody></table></div>
+          <p class="suave" style="margin-top:6px">Os itens não são editados depois de lançados (mexem no estoque). Para corrigir, cancele a compra e lance de novo.</p>`}
+        <div class="grade-form" style="margin-top:12px"><div class="campo"><label for="cp_frete">Frete (R$)</label><input id="cp_frete" type="number" step="0.01" min="0" value="${o.frete ?? 0}"></div>
+          <div class="campo"><label for="cp_desc">Desconto (R$)</label><input id="cp_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div></div>
+        <div class="totais"><div><span>Itens</span><span id="cp_sub"></span></div><div class="geral"><span>Total da compra</span><span id="cp_total"></span></div></div>
+        ${novo && dono ? `<h4>Financeiro</h4><div class="grade-form"><div class="campo"><label for="cp_fin">Lançar como despesa?</label><select id="cp_fin"><option value="nao">Não lançar</option><option value="paga">Sim, já paga</option><option value="pagar">Sim, a pagar</option></select></div>
+          <div class="campo" id="cp_venc_box" hidden><label for="cp_venc">Vencimento</label><input id="cp_venc" type="date"></div></div>` : ""}
+        <div class="campo"><label for="cp_obs">Observações</label><textarea id="cp_obs" rows="2">${esc(o.observacoes)}</textarea></div>
+        <div class="acoes">${!novo && dono && o.status === "ativa" ? '<button class="btn btn-perigo" id="cp_cancelar" type="button">Cancelar compra</button>' : ""}<span style="flex:1"></span>
+          <button class="btn btn-sec" id="cp_fechar" type="button">Fechar</button>${o.status === "cancelada" ? "" : '<button class="btn" id="cp_salvar" type="button">Salvar</button>'}</div>`, true);
+      const $ = (s) => m.querySelector(s), nn = (s) => $(s).value.trim() || null;
+      const calc = () => {
+        const base = novo ? itens : fixos, sub = base.reduce((s, i) => s + Number(i.quantidade || 0) * Number(i.custo_unitario || 0), 0);
+        $("#cp_sub").textContent = brl(sub); $("#cp_total").textContent = brl(sub + Number($("#cp_frete").value || 0) - Number($("#cp_desc").value || 0));
+        m.querySelectorAll("#cp_itens tr[data-i] .tot").forEach((td) => { const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * i.custo_unitario); });
+      };
+      $("#cp_fechar").onclick = m.fechar; $("#cp_frete").oninput = calc; $("#cp_desc").oninput = calc;
+      if ($("#cp_fin")) $("#cp_fin").onchange = (e) => ($("#cp_venc_box").hidden = e.target.value !== "pagar");
+
+      if (novo) {
+        const linhasItens = () => {
+          $("#cp_itens").innerHTML = itens.map((it, i) => `<tr data-i="${i}"><td><select data-c="pick" data-busca data-titulo="Buscar produto"><option value="">— Escolha o produto —</option><option value="novo" ${it.novo ? "selected" : ""}>➕ Cadastrar produto novo</option>${produtos.map((p) => `<option value="${p.id}" data-sub="custo ${brl(p.custo)}" ${it.produto_id === p.id ? "selected" : ""}>${esc((p.codigo ? p.codigo + " · " : "") + p.nome)}</option>`).join("")}</select>
+            ${it.novo ? `<div class="novo-prod"><input data-c="nome" placeholder="Nome do produto novo *" value="${esc(it.nome)}"><input data-c="codigo" placeholder="Código" value="${esc(it.codigo)}"><input class="num" data-c="preco_venda" type="number" step="0.01" min="0" placeholder="Venda R$" value="${it.preco_venda}"></div>` : ""}</td>
+            <td><input class="num" data-c="quantidade" type="number" step="0.01" min="0.01" value="${it.quantidade}"></td>
+            <td><input class="num" data-c="custo_unitario" type="number" step="0.01" min="0" value="${it.custo_unitario}"></td><td class="tot"></td>
+            <td><button class="x-linha" data-c="rem" type="button" aria-label="Remover">×</button></td></tr>`).join("");
+          ativarBuscas($("#cp_itens")); calc();
+        };
+        $("#cp_add").onclick = () => { itens.push({ produto_id: "", novo: false, nome: "", codigo: "", preco_venda: "", quantidade: 1, custo_unitario: 0 }); linhasItens(); };
+        $("#cp_itens").addEventListener("input", (e) => {
+          const c2 = e.target.dataset.c, i = e.target.closest("tr")?.dataset.i; if (!c2 || c2 === "pick" || c2 === "rem" || i == null) return;
+          itens[i][c2] = e.target.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value; calc();
+        });
+        $("#cp_itens").addEventListener("change", (e) => {
+          if (e.target.dataset.c !== "pick") return;
+          const it = itens[e.target.closest("tr").dataset.i], v = e.target.value;
+          if (v === "novo") Object.assign(it, { novo: true, produto_id: "" });
+          else { const p = produtos.find((x) => x.id === v); Object.assign(it, { novo: false, produto_id: v }); if (p && !Number(it.custo_unitario)) it.custo_unitario = Number(p.custo) || 0; }
+          linhasItens();
+        });
+        $("#cp_itens").addEventListener("click", (e) => { if (e.target.dataset.c === "rem") { itens.splice(e.target.closest("tr").dataset.i, 1); linhasItens(); } });
+        linhasItens();
+      } else calc();
+
+      const ver = $("#cp_ver");
+      if (ver) ver.onclick = async () => {
+        const w = window.open("", "_blank"); if (!w) { toast("Permita pop-ups para este site.", "erro"); return; }
+        const { data, error } = await sb.storage.from("notas-compras").createSignedUrl(o.arquivo, 600);
+        if (error) { w.close(); toast("Não consegui abrir o anexo.", "erro"); return; }
+        w.location.href = data.signedUrl;
+      };
+      const cancelar = $("#cp_cancelar");
+      if (cancelar) cancelar.onclick = async () => {
+        if (!confirm("Cancelar esta compra? As quantidades saem do estoque de novo." + (o.despesa_id ? " A despesa vinculada será excluída." : ""))) return;
+        const r = await sb.from("compras").update({ status: "cancelada" }).eq("id", o.id);
+        if (r.error) { toast(erroAmigavel(r.error), "erro"); return; }
+        if (o.despesa_id) await sb.from("despesas").delete().eq("id", o.despesa_id);
+        toast("Compra cancelada."); m.fechar(); await recarregar();
+      };
+
+      const salvar = $("#cp_salvar");
+      if (salvar) salvar.onclick = async () => {
+        const fornecedor = $("#cp_forn").value.trim();
+        if (!fornecedor) { toast("Informe o fornecedor.", "erro"); return; }
+        if (novo) {
+          if (!itens.length) { toast("Adicione pelo menos um item.", "erro"); return; }
+          for (const it of itens) {
+            if (!it.novo && !it.produto_id) { toast("Escolha o produto de cada item (ou cadastre um novo).", "erro"); return; }
+            if (it.novo && !String(it.nome).trim()) { toast("Dê um nome ao produto novo.", "erro"); return; }
+            if (!(Number(it.quantidade) > 0)) { toast("A quantidade precisa ser maior que zero.", "erro"); return; }
+          }
+        }
+        const cab = { fornecedor, data_compra: $("#cp_data").value || hojeISO(), documento_tipo: $("#cp_tipo").value, documento_numero: nn("#cp_num"),
+          chave_acesso: $("#cp_chave").value.replace(/\D/g, "") || null, forma_pagamento: $("#cp_forma").value || null,
+          frete: Number($("#cp_frete").value || 0), desconto: Number($("#cp_desc").value || 0), observacoes: nn("#cp_obs") };
+        if (cab.chave_acesso && cab.chave_acesso.length !== 44) { toast("A chave de acesso tem 44 números. Confira ou deixe em branco.", "erro"); return; }
+        const f = $("#cp_arq").files[0];
+        if (f && f.size > 8 * 1024 * 1024) { toast("O anexo passa de 8 MB. Use uma foto menor ou um PDF mais leve.", "erro"); return; }
+        salvar.disabled = true;
+        try {
+          if (f) {
+            const caminho = `${crypto.randomUUID()}/${f.name.normalize("NFD").replace(/[^\w.\-]+/g, "_")}`;
+            const up = await sb.storage.from("notas-compras").upload(caminho, f, { contentType: f.type }); if (up.error) throw up.error;
+            cab.arquivo = caminho;
+          }
+          if (!novo) {
+            const r = await sb.from("compras").update(cab).eq("id", o.id); if (r.error) throw r.error;
+          } else {
+            const novos = itens.filter((i) => i.novo);
+            if (novos.length) {
+              const r = await sb.from("produtos").insert(novos.map((i) => ({ nome: String(i.nome).trim(), codigo: String(i.codigo).trim() || null, unidade: "un", custo: Number(i.custo_unitario) || 0, preco_venda: Number(i.preco_venda) || 0 }))).select("id");
+              if (r.error) throw r.error;
+              novos.forEach((i, k) => { i.produto_id = r.data[k].id; i.novo = false; produtos.push({ id: i.produto_id, nome: String(i.nome).trim(), codigo: i.codigo, custo: i.custo_unitario }); });
+            }
+            const rc = await sb.from("compras").insert(cab).select("id,numero").single(); if (rc.error) throw rc.error;
+            const itensDb = itens.map((i) => ({ compra_id: rc.data.id, produto_id: i.produto_id, descricao: (produtos.find((p) => p.id === i.produto_id) || {}).nome || "Item",
+              quantidade: Number(i.quantidade), custo_unitario: Number(i.custo_unitario) || 0 }));
+            const ri = await sb.from("compra_itens").insert(itensDb);
+            if (ri.error) { await sb.from("compras").delete().eq("id", rc.data.id); throw ri.error; }
+            const fin = $("#cp_fin") ? $("#cp_fin").value : "nao", total = totalCompra(cab, itensDb);
+            if (fin !== "nao" && total > 0) {
+              const paga = fin === "paga";
+              const rd = await sb.from("despesas").insert({ descricao: `Compra #${rc.data.numero} · ${fornecedor}`, categoria: "Peças e materiais", valor: total,
+                vencimento: paga ? cab.data_compra : ($("#cp_venc").value || cab.data_compra), pago: paga, data_pago: paga ? cab.data_compra : null }).select("id").single();
+              if (rd.error) toast("Compra salva, mas não consegui lançar a despesa: " + rd.error.message, "erro");
+              else await sb.from("compras").update({ despesa_id: rd.data.id }).eq("id", rc.data.id);
+            }
+          }
+          toast("Compra salva!"); m.fechar(); await recarregar();
+        } catch (e) { console.error(e); toast(erroAmigavel(e), "erro"); salvar.disabled = false; }
+      };
+    };
+
+    el.querySelector("#busca").oninput = desenhar;
+    el.querySelector(".chips").onclick = (e) => { const b = e.target.closest("[data-f]"); if (!b) return; periodo = b.dataset.f; el.querySelectorAll(".chip").forEach((x) => x.classList.toggle("ativo", x === b)); desenhar(); };
+    corpo.onclick = (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) abrir(linhas.find((l) => l.id === tr.dataset.id)); };
+    el.querySelector("#nova").onclick = () => abrir(null);
+    desenhar();
+  },
+};
+
+// Estoque com duas abas: Peças e Compras (Compras só para dono e atendente)
+MODULOS.estoque = {
+  async render(el, ctx) {
+    if (!["dono", "atendente"].includes(ctx.perfil.papel)) return estoquePecas.render(el, ctx);
+    el.innerHTML = `<div class="chips" id="abas-est"><button class="chip ativo" data-a="pecas" type="button">Peças</button><button class="chip" data-a="compras" type="button">Compras</button></div><div id="aba-est"></div>`;
+    const alvo = el.querySelector("#aba-est");
+    const abrirAba = async (a) => {
+      el.querySelectorAll("#abas-est .chip").forEach((c) => c.classList.toggle("ativo", c.dataset.a === a));
+      alvo.innerHTML = '<p class="suave">Carregando…</p>';
+      try { await (a === "compras" ? comprasUI : estoquePecas).render(alvo, ctx); }
+      catch (e) { console.error(e); alvo.innerHTML = `<div class="aviso erro">Erro ao carregar: ${esc(e.message || e)}</div>`; }
+    };
+    el.querySelector("#abas-est").onclick = (e) => { const b = e.target.closest("[data-a]"); if (b) abrirAba(b.dataset.a); };
+    abrirAba("pecas");
+  },
+};
 
 // Equipe: o dono cria usuários, define papéis, troca senhas e ativa/desativa acessos
 const PAPEIS = [["atendente", "Atendente"], ["mecanico", "Mecânico"], ["contador", "Contador"], ["dono", "Dono"]];
