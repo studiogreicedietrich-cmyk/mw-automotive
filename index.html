@@ -186,6 +186,8 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 #menu .grupo-itens a{padding:9px 12px;font-weight:500;font-size:.94rem}
 #menu .grupo-itens a.ativo::before{left:-13px;top:8px;bottom:8px;width:3px}
 .migalha{color:var(--suave);font-weight:500}.migalha i{font-style:normal;margin:0 8px}
+.cnpj-acao{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}.cnpj-acao .mini{margin:0}
+.cnpj-acao small{flex:1;min-width:160px}.cnpj-alerta{color:var(--erro)!important}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -523,6 +525,7 @@ function crud(cfg) {
           <span style="flex:1"></span><button class="btn btn-sec" id="cancelar" type="button">Cancelar</button><button class="btn" id="salvar" type="button">Salvar</button></div>`);
         m.querySelector("#cancelar").onclick = m.fechar;
         if (cfg.aoAbrir && reg) cfg.aoAbrir(m, reg);
+        if (cfg.aoMontar) cfg.aoMontar(m, reg);
         m.querySelector("#salvar").onclick = async () => {
           const dados = lerCampos(cfg.campos, m);
           if (cfg.antes) cfg.antes(dados);
@@ -551,6 +554,7 @@ function crud(cfg) {
 const linkZap = (n) => { if (!n) return ""; const d = n.replace(/\D/g, ""); return `<a href="https://wa.me/${d.length <= 11 ? "55" + d : d}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(n)}</a>`; };
 
 MODULOS.clientes = crud({
+  aoMontar: (m) => ativarBuscaCnpj(m, MAPA_CNPJ_CLIENTE),
   tabela: "clientes", titulo: "Clientes", singular: "cliente", ordem: "nome",
   colunas: [{ k: "nome", t: "Nome" }, { t: "WhatsApp", f: (l) => linkZap(l.whatsapp) }, { k: "telefone", t: "Telefone" }, { k: "cpf_cnpj", t: "CPF/CNPJ" }],
   campos: [
@@ -1464,6 +1468,7 @@ MODULOS.configuracoes = {
         <div class="campo"><textarea id="c_termos" rows="4" placeholder="${esc(CONFIG.TERMOS || "")}">${v(data.termos)}</textarea></div></section>
       <div class="acoes"><span style="flex:1"></span><button class="btn" id="c_salvar" type="button">Salvar configurações</button></div>`;
     const $ = (s) => el.querySelector(s);
+    ativarBuscaCnpj(el, MAPA_CNPJ_CONFIG);
     const lerChave = () => normalizaChave($("#c_tipo").value, $("#c_chave").value);
 
     $("#c_teste").onclick = async () => {
@@ -1751,6 +1756,7 @@ MODULOS.compras = comprasUI;
 
 // ===================== CADASTRO DE FORNECEDORES =====================
 MODULOS.fornecedores = crud({
+  aoMontar: (m) => ativarBuscaCnpj(m, MAPA_CNPJ_FORNECEDOR),
   tabela: "fornecedores", titulo: "Fornecedores", singular: "fornecedor", ordem: "nome",
   colunas: [
     { t: "Fornecedor", f: (l) => `<strong>${esc(l.nome)}</strong>${l.ativo ? "" : ' <span class="badge" style="--cor:#9db0ac">Inativo</span>'}${l.contato ? `<br><span class="suave">${esc(l.contato)}</span>` : ""}` },
@@ -1779,6 +1785,91 @@ MODULOS.fornecedores = crud({
       : '<p class="suave">Nenhuma compra registrada para este fornecedor ainda.</p>');
   },
 });
+
+// ===================== CONSULTA DE CNPJ (dados públicos da Receita Federal) =====================
+function cnpjValido(c) {
+  if (!/^\d{14}$/.test(c) || /^(\d)\1+$/.test(c)) return false;
+  const dv = (b) => { let s = 0, p = b.length - 7; for (let i = 0; i < b.length; i++) { s += b[i] * p--; if (p < 2) p = 9; } const r = s % 11; return r < 2 ? 0 : 11 - r; };
+  const n = c.split("").map(Number);
+  return dv(n.slice(0, 12)) === n[12] && dv(n.slice(0, 13)) === n[13];
+}
+const fmtCnpj = (c) => c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+const fmtTel = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length === 10 ? d.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3") : d.length === 11 ? d.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3") : ""; };
+const capitalizar = (s) => String(s || "").toLowerCase().split(/\s+/).filter(Boolean).map((w, i) =>
+  ["ltda", "me", "epp", "eireli", "mei", "sa", "ss"].includes(w) ? w.toUpperCase() : (i > 0 && ["de", "da", "do", "das", "dos", "e", "a", "o"].includes(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+async function pedirJson(url) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 12000);
+  try { return await fetch(url, { signal: ctl.signal }); } finally { clearTimeout(t); }
+}
+// Tenta a BrasilAPI e, se ela estiver fora do ar, o CNPJ.ws. Devolve sempre o mesmo formato.
+async function consultarCnpj(cnpj) {
+  let naoAchou = false, limite = false;
+  try {
+    const r = await pedirJson("https://brasilapi.com.br/api/cnpj/v1/" + cnpj);
+    if (r.ok) { const d = await r.json();
+      return { razao: d.razao_social, fantasia: d.nome_fantasia, situacao: d.descricao_situacao_cadastral, logradouro: d.logradouro, numero: d.numero, complemento: d.complemento,
+        bairro: d.bairro, cep: d.cep, cidade: d.municipio, uf: d.uf, telefone: d.ddd_telefone_1, email: d.email }; }
+    if (r.status === 404) naoAchou = true; else if (r.status === 429) limite = true;
+  } catch (e) { /* sem rede ou fora do ar: tenta o próximo */ }
+  if (!naoAchou) {
+    try {
+      const r = await pedirJson("https://publica.cnpj.ws/cnpj/" + cnpj);
+      if (r.ok) { const d = await r.json(), e = d.estabelecimento || {};
+        return { razao: d.razao_social, fantasia: e.nome_fantasia, situacao: e.situacao_cadastral, logradouro: [e.tipo_logradouro, e.logradouro].filter(Boolean).join(" "), numero: e.numero,
+          complemento: e.complemento, bairro: e.bairro, cep: e.cep, cidade: e.cidade?.nome, uf: e.estado?.sigla, telefone: (e.ddd1 || "") + (e.telefone1 || ""), email: e.email }; }
+      if (r.status === 404) naoAchou = true; else if (r.status === 429) limite = true;
+    } catch (e) { /* idem */ }
+  }
+  throw new Error(naoAchou ? "CNPJ não encontrado na Receita Federal." : limite ? "Muitas consultas seguidas. Aguarde um minuto e tente de novo."
+    : "Não consegui falar com o serviço da Receita agora. Tente de novo em instantes ou preencha à mão.");
+}
+
+const MAPA_CNPJ_CLIENTE = { doc: "#f_cpf_cnpj", nome: "#f_nome", telefone: "#f_telefone", whatsapp: "#f_whatsapp", email: "#f_email", endereco: "#f_endereco", obs: "#f_observacoes" };
+const MAPA_CNPJ_FORNECEDOR = { doc: "#f_cnpj_cpf", nome: "#f_nome", telefone: "#f_telefone", whatsapp: "#f_whatsapp", email: "#f_email", cidade: "#f_cidade", endereco: "#f_endereco", obs: "#f_observacoes" };
+const MAPA_CNPJ_CONFIG = { doc: "#c_cnpj", telefone: "#c_tel", email: "#c_mail", endereco: "#c_end" };
+
+// Coloca o botão "Buscar dados pelo CNPJ" embaixo do campo de documento (só aparece com 14 números digitados).
+function ativarBuscaCnpj(raiz, mapa) {
+  const doc = raiz.querySelector(mapa.doc); if (!doc) return;
+  const campo = doc.closest(".campo");
+  campo.insertAdjacentHTML("beforeend", '<div class="cnpj-acao" hidden><button class="mini" type="button" data-cnpj>🔎 Buscar dados pelo CNPJ</button><small class="suave" data-cnpj-msg></small></div>');
+  const caixa = campo.querySelector(".cnpj-acao"), btn = campo.querySelector("[data-cnpj]"), msg = campo.querySelector("[data-cnpj-msg]");
+  const dig = () => doc.value.replace(/\D/g, "");
+  const atualizar = () => { caixa.hidden = dig().length !== 14; };
+  doc.addEventListener("input", atualizar); atualizar();
+
+  btn.onclick = async () => {
+    const c = dig();
+    if (!cnpjValido(c)) { toast("CNPJ inválido. Confira os números.", "erro"); return; }
+    btn.disabled = true; msg.className = "suave"; msg.textContent = "Consultando a Receita…";
+    try {
+      const d = await consultarCnpj(c);
+      const el = (k) => (mapa[k] ? raiz.querySelector(mapa[k]) : null);
+      const razao = capitalizar(d.razao), nome = capitalizar(d.fantasia) || razao;
+      const logr = [capitalizar(d.logradouro), d.numero && d.numero !== "S/N" ? d.numero : ""].filter(Boolean).join(", ") + (d.complemento ? " - " + capitalizar(d.complemento) : "");
+      const cep = String(d.cep || "").replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2");
+      const cidadeUf = [capitalizar(d.cidade), d.uf].filter(Boolean).join("/");
+      const endereco = [logr, capitalizar(d.bairro), cep, el("cidade") ? "" : cidadeUf].filter(Boolean).join(" - ");
+      const tel = fmtTel(d.telefone), digTel = String(d.telefone || "").replace(/\D/g, "");
+      const propostas = { nome, telefone: tel, email: (d.email || "").toLowerCase(), cidade: cidadeUf, endereco };
+      const rot = { nome: "nome", telefone: "telefone", email: "e-mail", cidade: "cidade", endereco: "endereço" };
+      const conflitos = Object.keys(propostas).filter((k) => el(k) && propostas[k] && el(k).value.trim() && normBusca(el(k).value) !== normBusca(propostas[k]));
+      const trocar = conflitos.length ? confirm("Estes campos já têm informação e serão substituídos pelos dados da Receita: " + conflitos.map((k) => rot[k]).join(", ") + ".\n\nSubstituir? (Cancelar preenche só os que estão vazios.)") : true;
+      Object.keys(propostas).forEach((k) => { const e = el(k); if (e && propostas[k] && (!e.value.trim() || trocar)) e.value = propostas[k]; });
+      const zap = el("whatsapp");
+      if (zap && !zap.value.trim() && digTel.length === 11 && digTel[2] === "9") zap.value = tel;   // celular: serve de WhatsApp
+      const obs = el("obs");
+      if (obs && razao && normBusca(razao) !== normBusca(nome) && !normBusca(obs.value).includes(normBusca(razao))) obs.value = (obs.value.trim() ? obs.value.trim() + "\n" : "") + "Razão social: " + razao;
+      doc.value = fmtCnpj(c);
+      const baixada = d.situacao && !/ativa/i.test(d.situacao);
+      msg.className = baixada ? "cnpj-alerta" : "suave";
+      msg.textContent = `${razao || "Empresa encontrada"} · situação: ${d.situacao || "não informada"}`;
+      toast(baixada ? "Atenção: a situação cadastral é " + d.situacao + "." : "Dados preenchidos! Confira antes de salvar.", baixada ? "erro" : "ok");
+    } catch (e) { msg.className = "cnpj-alerta"; msg.textContent = e.message; toast(e.message, "erro"); }
+    btn.disabled = false;
+  };
+}
 
 // Equipe: o dono cria usuários, define papéis, troca senhas e ativa/desativa acessos
 const PAPEIS = [["atendente", "Atendente"], ["mecanico", "Mecânico"], ["contador", "Contador"], ["dono", "Dono"]];
