@@ -186,8 +186,36 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 #menu .grupo-itens a{padding:9px 12px;font-weight:500;font-size:.94rem}
 #menu .grupo-itens a.ativo::before{left:-13px;top:8px;bottom:8px;width:3px}
 .migalha{color:var(--suave);font-weight:500}.migalha i{font-style:normal;margin:0 8px}
+.versao{grid-column:1/-1;text-align:center;color:var(--suave);opacity:.6;font-size:.72rem;margin-top:8px}
 .cnpj-acao{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}.cnpj-acao .mini{margin:0}
 .cnpj-acao small{flex:1;min-width:160px}.cnpj-alerta{color:var(--erro)!important}
+.alerta-garantia{margin:14px 0;padding:12px 16px;border-radius:12px;background:rgba(252,211,74,.1);border:1px solid rgba(252,211,74,.45)}
+.alerta-garantia ul{margin:6px 0 0;padding-left:18px}
+.link-ficha{background:none;border:0;color:var(--amarelo);font:inherit;cursor:pointer;padding:4px 0;text-decoration:underline}
+.ficha-topo{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.ficha-kpis{display:flex;gap:14px;color:var(--suave);flex-wrap:wrap}.ficha-kpis b{color:var(--amarelo)}
+.ficha-os{border:1px solid var(--borda);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:var(--sup2)}
+.ficha-cab{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.peq-txt{font-size:.9rem;color:var(--suave);margin:2px 0}.ficha-itens{margin:8px 0 0;padding-left:4px;list-style:none;display:grid;gap:2px}
+.fotos-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px}
+.foto{aspect-ratio:1;padding:0;border:1px solid var(--borda);border-radius:12px;overflow:hidden;background:var(--sup2);cursor:pointer}
+.foto img{width:100%;height:100%;object-fit:cover;display:block}
+.foto-add{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:2px dashed rgba(252,211,74,.4);border-radius:12px;font-size:1.7rem;cursor:pointer;transition:.15s}
+.foto-add:hover{background:rgba(252,211,74,.08)}.foto-add span{font-size:.8rem;color:var(--suave)}
+.foto-grande{max-width:100%;max-height:60vh;display:block;margin:0 auto;border-radius:12px}
+.primeira-maiuscula::first-letter{text-transform:uppercase}
+.agenda-barra{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.agenda-barra input{width:auto}.agenda-barra .btn{padding:10px 14px}
+.semana{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:18px}
+.dia-bt{display:flex;flex-direction:column;align-items:center;padding:10px 4px;border:1px solid var(--borda);border-radius:14px;background:var(--sup);color:var(--suave);font:inherit;cursor:pointer;transition:.15s}
+.dia-bt b{font-size:1.2rem;color:var(--texto)}.dia-bt:hover{border-color:var(--amarelo)}
+.dia-bt.sel{background:rgba(252,211,74,.14);border-color:var(--amarelo)}.dia-bt.sel b{color:var(--amarelo)}
+.dia-bt.hoje small::after{content:" •";color:var(--amarelo)}
+.dia-bt i{font-style:normal;font-size:.72rem;min-width:1.4em;color:#1a1a10;background:var(--amarelo);border-radius:99px;padding:0 7px;font-weight:800;margin-top:3px}.dia-bt i:empty{visibility:hidden}
+.ag-card{display:grid;grid-template-columns:76px 1fr auto;gap:14px;align-items:center;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:var(--sup);border:1px solid var(--borda);border-left:4px solid var(--cor);cursor:pointer;transition:.15s}
+.ag-card:hover{transform:translateX(3px)}
+.ag-hora{display:flex;flex-direction:column;line-height:1.25}.ag-hora b{font-size:1.25rem}.ag-hora small{color:var(--suave)}
+.ag-acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}.ag-acoes .mini{margin:0}
+@media(max-width:860px){.ag-card{grid-template-columns:62px 1fr}.ag-acoes{grid-column:1/-1;justify-content:flex-start}.semana{gap:4px}.dia-bt{padding:8px 2px}}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -249,6 +277,7 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
         <div id="usuario-nome"></div>
         <small id="usuario-papel"></small>
         <button id="btn-sair" class="btn btn-sec" type="button">Sair</button>
+        <small class="versao" id="versao"></small>
       </div>
     </aside>
     <div class="fundo" id="fundo"></div>
@@ -296,6 +325,7 @@ window.LOGO = "data:image/webp;base64,UklGRvzYAABXRUJQVlA4WAoAAAAQAAAAawIAoAEAQU
 window.ICONES = {"painel": "<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/>", "clientes": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6\"/><circle cx=\"17.5\" cy=\"9\" r=\"2.5\"/><path d=\"M17 14.2c2.6.2 4.5 2 4.5 5.8\"/>", "veiculos": "<path d=\"M4 16v-4l2-5.5a1.5 1.5 0 0 1 1.4-1h9.2a1.5 1.5 0 0 1 1.4 1l2 5.5v4\"/><path d=\"M3 16h18v2.5a.5.5 0 0 1-.5.5H17v-1.5H7V19H3.5a.5.5 0 0 1-.5-.5z\"/><circle cx=\"7.5\" cy=\"13\" r=\".8\"/><circle cx=\"16.5\" cy=\"13\" r=\".8\"/>", "os": "<rect x=\"5\" y=\"4\" width=\"14\" height=\"17\" rx=\"2\"/><path d=\"M9 4h6v3H9zM8.5 12h7M8.5 16h5\"/>", "estoque": "<path d=\"M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z\"/><path d=\"M3 7.5 12 12l9-4.5M12 12v9\"/>", "financeiro": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"13\" rx=\"2.5\"/><path d=\"M3 10h18\"/><circle cx=\"16.5\" cy=\"14.5\" r=\"1.2\"/>", "lembretes": "<path d=\"M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 21h4\"/>", "equipe": "<path d=\"M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z\"/>", "bolt": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "servicos": "<circle cx=\"12\" cy=\"12\" r=\"3.2\"/><path d=\"M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7\"/>", "configuracoes": "<circle cx=\"12\" cy=\"12\" r=\"3.2\"/><path d=\"M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7\"/>", "check": "<path d=\"M5 12.5 10 17.5 19 7\"/>"};
 ICONES.cadastros = '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
 ICONES.compras = '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M3 4h2.5l2.2 11h10.6l2-8H6.2"/>';
+ICONES.agenda = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/>';
 ICONES.pecas = ICONES.estoque; ICONES["fin-receber"] = ICONES.financeiro; ICONES["fin-resumo"] = ICONES.financeiro;
 window.svg = (nome, extra = "") => `<svg class="ico ${extra}" viewBox="0 0 24 24" aria-hidden="true">${ICONES[nome] || ""}</svg>`;
 document.querySelectorAll("[data-logo]").forEach((i) => (i.src = LOGO));
@@ -400,11 +430,12 @@ MODULOS.painel = {
     ];
     const daqui30 = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
 
-    const [os, est, lem] = await Promise.all([
+    const [os, est, lem, ag] = await Promise.all([
       sb.from("ordens_servico").select("status").in("status", ETAPAS.map((e) => e[0])),
       permitido("pecas") ? sb.from("estoque_baixo").select("id", { count: "exact", head: true }) : null,
       permitido("lembretes") ? sb.from("lembretes_revisao").select("id", { count: "exact", head: true })
         .eq("status", "pendente").lte("data_prevista", daqui30) : null,
+      permitido("agenda") ? sb.from("agendamentos").select("id", { count: "exact", head: true }).gte("inicio", diaRange(hojeISO())[0]).lt("inicio", diaRange(hojeISO())[1]).neq("status", "cancelado") : null,
     ]);
 
     const cont = {};
@@ -416,6 +447,7 @@ MODULOS.painel = {
       { t: "OS em aberto", ic: "os", cor: "#fcd34a", rota: "os", v: os.error ? "—" : aberto },
       { t: "Prontas para entrega", ic: "check", cor: "#46d39a", rota: "os", v: os.error ? "—" : cont.concluido || 0 },
       est && { t: "Peças com estoque baixo", ic: "estoque", cor: "#ff9f45", rota: "pecas", v: num(est) },
+      ag && { t: "Agendamentos hoje", ic: "agenda", cor: "#c58cff", rota: "agenda", v: num(ag) },
       lem && { t: "Revisões em 30 dias", ic: "lembretes", cor: "#5cc8ff", rota: "lembretes", v: num(lem) },
     ].filter(Boolean);
 
@@ -565,6 +597,7 @@ MODULOS.clientes = crud({
 });
 
 MODULOS.veiculos = crud({
+  aoAbrir: (m, reg) => { const d = document.createElement("div"); d.innerHTML = '<h4>Histórico do veículo</h4><div id="ficha"></div>'; m.querySelector(".modal-corpo").appendChild(d); renderFicha(d.querySelector("#ficha"), reg.id); },
   tabela: "veiculos", titulo: "Veículos", singular: "veículo", ordem: "placa", select: "*, clientes(nome)",
   carregar: async () => ({ clientes: (await sb.from("clientes").select("id,nome").order("nome")).data || [] }),
   colunas: [{ k: "placa", t: "Placa", f: (l) => `<strong>${esc(l.placa)}</strong>` },
@@ -591,7 +624,7 @@ MODULOS.os = {
     const editaTudo = ["dono", "atendente"].includes(papel);
     const [cli, vei, mec, srv, prd] = await Promise.all([
       sb.from("clientes").select("id,nome").order("nome"),
-      sb.from("veiculos").select("id,cliente_id,placa,marca,modelo").order("placa"),
+      sb.from("veiculos").select("id,cliente_id,placa,marca,modelo,km_atual").order("placa"),
       sb.from("perfis").select("id,nome").in("papel", ["mecanico", "dono"]).eq("ativo", true).order("nome"),
       sb.from("servicos_catalogo").select("*").eq("ativo", true).order("nome"),
       sb.from("produtos").select("id,nome,codigo,preco_venda,qtd_estoque,garantia_dias,garantia_km").eq("ativo", true).order("nome"),
@@ -601,7 +634,7 @@ MODULOS.os = {
 
     const carregar = async () => {
       const [a, t] = await Promise.all([
-        sb.from("ordens_servico").select("*, clientes(nome), veiculos(placa,marca,modelo), mecanico:perfis!mecanico_id(nome)").order("numero", { ascending: false }).limit(300),
+        sb.from("ordens_servico").select("*, clientes(nome), veiculos(placa,marca,modelo), mecanico:perfis!mecanico_id(nome), os_fotos(count)").order("numero", { ascending: false }).limit(300),
         sb.from("os_totais").select("os_id,total_geral,total_pago"),
       ]);
       if (a.error) throw a.error;
@@ -620,7 +653,7 @@ MODULOS.os = {
       const q = el.querySelector("#busca").value.toLowerCase().trim(), grupo = GRUPOS_OS[filtro];
       const vis = linhas.filter((o) => (!grupo || grupo.includes(o.status)) &&
         (!q || `${o.numero} ${o.clientes?.nome} ${o.veiculos?.placa} ${o.veiculos?.modelo}`.toLowerCase().includes(q)));
-      corpo.innerHTML = vis.length ? vis.map((o) => `<tr class="clicavel" data-id="${o.id}"><td><strong>#${o.numero}</strong></td><td>${dataBR(o.data_entrada)}</td>
+      corpo.innerHTML = vis.length ? vis.map((o) => `<tr class="clicavel" data-id="${o.id}"><td><strong>#${o.numero}</strong>${o.os_fotos?.[0]?.count ? ` <span class="suave">📷${o.os_fotos[0].count}</span>` : ""}</td><td>${dataBR(o.data_entrada)}</td>
         <td>${esc(o.clientes?.nome)}</td><td>${esc(o.veiculos?.placa)} <span class="suave">${esc(o.veiculos?.modelo || "")}</span></td>
         <td>${esc(o.mecanico?.nome || "—")}</td><td>${badgeOS(o.status)}</td><td>${brl(o.total)}</td></tr>`).join("")
         : '<tr><td colspan="7" class="suave centro">Nenhuma OS por aqui.</td></tr>';
@@ -658,12 +691,14 @@ MODULOS.os = {
           <div class="campo larga"><label>Defeito relatado pelo cliente</label><textarea id="f_defeito" rows="2">${esc(o.defeito_relatado)}</textarea></div>
           <div class="campo larga"><label>Diagnóstico do mecânico</label><textarea id="f_diag" rows="2">${esc(o.diagnostico)}</textarea></div>
         </div>
+        <div id="aviso-garantia"></div>
         <h4>Checklist de entrada</h4>
         <div class="checks">${CHECK_ENTRADA.map((t) => `<label><input type="checkbox" value="${esc(t)}" ${(chk.itens || []).includes(t) ? "checked" : ""}>${t}</label>`).join("")}</div>
         <div class="campo" style="max-width:240px"><label>Combustível</label><select id="f_comb">${opt([["reserva", "Reserva"], ["1/4", "1/4"], ["1/2", "1/2"], ["3/4", "3/4"], ["cheio", "Cheio"]], chk.combustivel, "Não informado")}</select></div>
+        <h4>Fotos do veículo</h4><div id="fotos-os">${os ? "" : '<p class="suave">Salve a OS primeiro: em seguida ela reabre e você já pode tirar as fotos de entrada.</p>'}</div>
         <h4>Serviços e peças</h4>
         <div class="tabela-wrap"><table class="tabela itens"><thead><tr><th>Tipo</th><th>Do catálogo</th><th>Descrição</th><th>Qtd</th><th>Valor un.</th><th>Garantia</th><th>Total</th><th></th></tr></thead><tbody id="itens"></tbody></table></div>
-        <div class="acoes-item"><button class="btn btn-sec" id="add-srv" type="button">+ Serviço</button><button class="btn btn-sec" id="add-prd" type="button">+ Peça</button></div>
+        <div class="acoes-item"><button class="btn btn-sec" id="add-srv" type="button">+ Serviço</button><button class="btn btn-sec" id="add-prd" type="button">+ Peça</button><button class="btn btn-sec" id="add-pct" type="button">+ Pacote</button></div>
         <div class="grade-form"><div class="campo larga"><label>Observações</label><textarea id="f_obs" rows="2">${esc(o.observacoes)}</textarea></div>
           <div class="campo"><label>Desconto (R$)</label><input id="f_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div></div>
         <div class="totais"><div><span>Subtotal</span><span id="t-sub"></span></div><div class="geral"><span>Total</span><span id="t-total"></span></div>
@@ -704,6 +739,24 @@ MODULOS.os = {
       const novoItem = (tipo) => { itens.push({ tipo, produto_id: null, servico_id: null, descricao: "", quantidade: 1, valor_unitario: 0, garantia_dias: null, garantia_km: null }); linhasItens(); };
       $("#add-srv").onclick = () => novoItem("servico");
       $("#add-prd").onclick = () => novoItem("peca");
+      $("#add-pct").onclick = async () => {
+        const r = await sb.from("pacotes").select("id,nome,descricao,pacote_itens(tipo,servico_id,produto_id,quantidade)").eq("ativo", true).order("nome");
+        if (r.error || !(r.data || []).length) { toast(r.error ? "Rode o 09_dia_a_dia.sql para usar pacotes." : "Nenhum pacote cadastrado ainda (Cadastros › Pacotes).", "erro"); return; }
+        const mp = modal("Adicionar pacote à OS", `<div class="campo"><label for="pc_sel">Pacote</label><select id="pc_sel" data-busca data-titulo="Buscar pacote"><option value="">Selecione…</option>${r.data.map((p) => `<option value="${p.id}" data-sub="${(p.pacote_itens || []).length} item(ns)">${esc(p.nome)}</option>`).join("")}</select></div>
+          <div id="pc_prev" class="suave"></div><div class="acoes"><span style="flex:1"></span><button class="btn btn-sec" id="pc_x" type="button">Cancelar</button><button class="btn" id="pc_add" type="button">Adicionar à OS</button></div>`);
+        const montar = (pc) => (pc.pacote_itens || []).map((i) => {
+          if (i.tipo === "servico") { const s = servicos.find((x) => x.id === i.servico_id); return s && { tipo: "servico", servico_id: s.id, produto_id: null, descricao: s.nome, quantidade: Number(i.quantidade), valor_unitario: Number(s.preco_padrao), garantia_dias: s.garantia_dias, garantia_km: s.garantia_km }; }
+          const p = produtos.find((x) => x.id === i.produto_id); return p && { tipo: "peca", produto_id: p.id, servico_id: null, descricao: p.nome, quantidade: Number(i.quantidade), valor_unitario: Number(p.preco_venda), garantia_dias: p.garantia_dias ?? null, garantia_km: p.garantia_km ?? null };
+        });
+        mp.querySelector("#pc_sel").onchange = (e) => { const pc = r.data.find((x) => x.id === e.target.value); mp.querySelector("#pc_prev").innerHTML = pc ? (pc.descricao ? esc(pc.descricao) + "<br>" : "") + montar(pc).filter(Boolean).map((i) => `• ${esc(i.descricao)} ×${nBR(i.quantidade)} — ${brl(i.valor_unitario)}`).join("<br>") : ""; };
+        mp.querySelector("#pc_x").onclick = mp.fechar;
+        mp.querySelector("#pc_add").onclick = () => {
+          const pc = r.data.find((x) => x.id === mp.querySelector("#pc_sel").value); if (!pc) { toast("Escolha um pacote.", "erro"); return; }
+          const novos = montar(pc), validos = novos.filter(Boolean);
+          validos.forEach((i) => itens.push(i)); linhasItens(); mp.fechar();
+          toast(`${validos.length} item(ns) do pacote adicionados.` + (novos.length > validos.length ? " Alguns itens inativos foram ignorados." : ""));
+        };
+      };
       $("#itens").addEventListener("input", (e) => {
         const c = e.target.dataset.c, i = e.target.closest("tr")?.dataset.i;
         if (!c || c === "pick" || i == null) return;
@@ -720,7 +773,8 @@ MODULOS.os = {
       });
       $("#itens").addEventListener("click", (e) => { if (e.target.dataset.c === "rem") { itens.splice(e.target.closest("tr").dataset.i, 1); linhasItens(); } });
       $("#f_desc").oninput = calc;
-      $("#f_cliente").onchange = (e) => { const ops = opsVeic(e.target.value); $("#f_veiculo").innerHTML = opt(ops, ops.length === 1 ? ops[0][0] : "", e.target.value ? "Selecione…" : "Selecione o cliente primeiro"); };
+      $("#f_cliente").onchange = (e) => { const ops = opsVeic(e.target.value); $("#f_veiculo").innerHTML = opt(ops, ops.length === 1 ? ops[0][0] : "", e.target.value ? "Selecione…" : "Selecione o cliente primeiro"); verGarantias(); };
+      $("#f_veiculo").addEventListener("change", () => verGarantias());
       $("#cancelar").onclick = m.fechar;
       if (os) {
         const montarDoc = async () => {
@@ -755,7 +809,77 @@ MODULOS.os = {
       }
       linhasItens();
 
-      if (papel === "contador") m.querySelectorAll("input,select,textarea,.x-linha,#add-srv,#add-prd,#salvar").forEach((x) => (x.disabled = true));
+      // Aviso de garantia vigente do veículo escolhido
+      async function verGarantias() {
+        const vid = $("#f_veiculo").value, alvo = $("#aviso-garantia");
+        if (!vid) { alvo.innerHTML = ""; return; }
+        const { data, error } = await sb.from("os_itens").select("descricao,garantia_dias,garantia_km,os:ordens_servico!inner(numero,status,data_entrega,km_entrada,veiculo_id)")
+          .eq("os.veiculo_id", vid).eq("os.status", "entregue");
+        if (error || !data) { alvo.innerHTML = ""; return; }
+        const ve = veiculos.find((x) => x.id === vid) || {}, gar = calcGarantias(data, ve.km_atual).filter((g) => g.numero !== o.numero);
+        alvo.innerHTML = (gar.length ? `<div class="alerta-garantia"><b>⚠ Este veículo tem garantia vigente:</b><ul>${gar.map((g) => `<li>${esc(g.descricao)} <span class="suave">(OS #${g.numero}, ${garTexto(g)})</span></li>`).join("")}</ul><span class="suave">Se o problema for desse serviço ou peça, pode ser retrabalho em garantia.</span></div>` : "")
+          + '<button class="link-ficha" id="ver-ficha" type="button">🚗 Ver ficha do veículo (histórico completo)</button>';
+        $("#ver-ficha").onclick = () => abrirFichaVeiculo(vid);
+      }
+      verGarantias();
+
+      // Fotos por etapa (entrada / durante / pronto)
+      if (os) {
+        const box = $("#fotos-os"), ETAPAS_FOTO = [["entrada", "Entrada"], ["durante", "Durante"], ["saida", "Pronto"]], podeApagar = ["dono", "atendente"].includes(papel);
+        let etapaAtual = "entrada", fotos = [];
+        const desenhaFotos = () => {
+          box.innerHTML = `<div class="chips">${ETAPAS_FOTO.map(([k, t]) => `<button class="chip ${k === etapaAtual ? "ativo" : ""}" data-e="${k}" type="button">${t} (${fotos.filter((f) => f.etapa === k).length})</button>`).join("")}</div>
+            <div class="fotos-grade">${fotos.filter((f) => f.etapa === etapaAtual).map((f) => `<button class="foto" type="button" data-foto="${f.id}"><img src="${f.url}" alt="${esc(f.legenda || "Foto da OS")}" loading="lazy"></button>`).join("")}
+            ${papel === "contador" ? "" : '<label class="foto-add">📷<span>Adicionar</span><input id="foto-input" type="file" accept="image/*" multiple hidden></label>'}</div>`;
+        };
+        const carregarFotos = async () => {
+          const r = await sb.from("os_fotos").select("*").eq("os_id", os.id).order("created_at");
+          fotos = r.data || [];
+          const urls = fotos.length ? ((await sb.storage.from("fotos-os").createSignedUrls(fotos.map((f) => f.caminho), 3600)).data || []) : [];
+          fotos.forEach((f, i) => (f.url = urls[i]?.signedUrl || ""));
+          desenhaFotos();
+        };
+        box.addEventListener("click", (e) => {
+          const ch = e.target.closest("[data-e]"); if (ch) { etapaAtual = ch.dataset.e; desenhaFotos(); return; }
+          const bt = e.target.closest("[data-foto]"); if (!bt) return;
+          const f = fotos.find((x) => x.id === bt.dataset.foto);
+          const g = modal("Foto · " + ETAPAS_FOTO.find((x) => x[0] === f.etapa)[1], `<img class="foto-grande" src="${f.url}" alt="">
+            <div class="campo"><label for="fg_leg">Legenda (opcional)</label><input id="fg_leg" value="${esc(f.legenda)}" ${papel === "contador" ? "disabled" : ""}></div>
+            <div class="acoes">${podeApagar ? '<button class="btn btn-perigo" id="fg_del" type="button">Excluir foto</button>' : ""}<span style="flex:1"></span><button class="btn btn-sec" id="fg_ok" type="button">Fechar</button></div>`);
+          g.style.zIndex = 70;
+          g.querySelector("#fg_ok").onclick = async () => {
+            const leg = g.querySelector("#fg_leg").value.trim() || null;
+            if (leg !== (f.legenda || null) && papel !== "contador") { await sb.from("os_fotos").update({ legenda: leg }).eq("id", f.id); f.legenda = leg; }
+            g.fechar();
+          };
+          const del = g.querySelector("#fg_del");
+          if (del) del.onclick = async () => {
+            if (!confirm("Excluir esta foto?")) return;
+            await sb.storage.from("fotos-os").remove([f.caminho]);
+            const r = await sb.from("os_fotos").delete().eq("id", f.id);
+            if (r.error) { toast(erroAmigavel(r.error), "erro"); return; }
+            g.fechar(); toast("Foto excluída."); await carregarFotos(); await carregar(); desenhar();
+          };
+        });
+        box.addEventListener("change", async (e) => {
+          if (e.target.id !== "foto-input") return;
+          const arquivos = [...e.target.files]; if (!arquivos.length) return;
+          toast(`Enviando ${arquivos.length} foto(s)…`); let ok = 0;
+          for (const arq of arquivos) {
+            try {
+              const blob = await reduzirImagem(arq), caminho = `${os.id}/${crypto.randomUUID()}.jpg`;
+              const up = await sb.storage.from("fotos-os").upload(caminho, blob, { contentType: "image/jpeg" }); if (up.error) throw up.error;
+              const r = await sb.from("os_fotos").insert({ os_id: os.id, caminho, etapa: etapaAtual }); if (r.error) throw r.error;
+              ok++;
+            } catch (err) { console.error(err); toast("Não consegui enviar uma foto: " + err.message, "erro"); }
+          }
+          if (ok) toast(ok + " foto(s) enviada(s)!");
+          await carregarFotos(); await carregar(); desenhar();
+        });
+        desenhaFotos(); carregarFotos();
+      }
+
+      if (papel === "contador") m.querySelectorAll("input,select,textarea,.x-linha,#add-srv,#add-prd,#add-pct,#salvar").forEach((x) => (x.disabled = true));
       if (papel === "mecanico") ["#f_cliente", "#f_veiculo", "#f_mecanico", "#f_desc", "#f_validade"].forEach((s) => ($(s).disabled = true));
 
       $("#salvar").onclick = async () => {
@@ -776,6 +900,7 @@ MODULOS.os = {
           if (antigos.length) { const r = await sb.from("os_itens").delete().in("id", antigos); if (r.error) throw r.error; }
           if (os) { const r = await sb.from("ordens_servico").update(dados).eq("id", osId); if (r.error) throw r.error; }
           toast("OS salva!"); m.fechar(); await carregar(); desenhar();
+          if (!os) { const nova = linhas.find((x) => x.id === osId); if (nova) { toast("OS criada! Agora você já pode anexar as fotos de entrada."); abrir(nova); } }
           if (os && antes !== "concluido" && dados.status === "concluido" && editaTudo) await oferecerRecebimento(osId);
         } catch (e) { console.error(e); toast(erroAmigavel(e), "erro"); btn.disabled = false; }
       };
@@ -796,6 +921,7 @@ MODULOS.os = {
     corpo.onclick = (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) abrir(linhas.find((l) => l.id === tr.dataset.id)); };
     if (editaTudo) el.querySelector("#nova").onclick = () => abrir(null);
     desenhar();
+    if (window.__osPendente) { const alvoOS = linhas.find((x) => x.id === window.__osPendente); window.__osPendente = null; if (alvoOS) abrir(alvoOS); }
   },
 };
 
@@ -1345,7 +1471,7 @@ MODULOS.lembretes = {
       corpo.innerHTML = vis.length ? vis.map((l) => { const v = l.veiculos || {};
         return `<tr class="${editar ? "clicavel" : ""}" data-id="${l.id}"><td><b>${esc(v.clientes?.nome)}</b></td><td>${esc(v.placa)} <span class="suave">${esc(v.modelo || "")}</span></td><td>${esc(l.descricao)}</td>
           <td>${l.data_prevista ? dataBR(l.data_prevista) : ""}${l.data_prevista && l.km_previsto ? "<br>" : ""}${l.km_previsto ? nBR(l.km_previsto) + " km" : ""}${l.km_previsto && v.km_atual != null ? `<br><span class="suave">atual: ${nBR(v.km_atual)} km</span>` : ""}</td>
-          <td>${badge(l)}</td><td class="acoes-linha">${editar && ["pendente", "enviado"].includes(l.status) ? '<button class="mini zap" data-acao="zap" type="button">WhatsApp</button><button class="mini" data-acao="ok" type="button" title="Marcar como concluído">✓</button>' : ""}</td></tr>`; }).join("")
+          <td>${badge(l)}</td><td class="acoes-linha">${editar && ["pendente", "enviado"].includes(l.status) ? '<button class="mini zap" data-acao="zap" type="button">WhatsApp</button><button class="mini" data-acao="agendar" type="button">📅 Agendar</button><button class="mini" data-acao="ok" type="button" title="Marcar como concluído">✓</button>' : ""}</td></tr>`; }).join("")
         : '<tr><td colspan="6" class="suave centro">Nenhum lembrete por aqui.</td></tr>';
     };
     const mudar = async (l, status) => {
@@ -1384,7 +1510,7 @@ MODULOS.lembretes = {
     corpo.onclick = (e) => {
       const tr = e.target.closest("tr[data-id]"); if (!tr) return;
       const l = linhas.find((x) => x.id === tr.dataset.id), acao = e.target.closest("[data-acao]")?.dataset.acao;
-      if (acao === "zap") avisar(l); else if (acao === "ok") mudar(l, "concluido"); else if (editar) abrir(l);
+      if (acao === "zap") avisar(l); else if (acao === "agendar") abrirAgendamento(null, { veiculo_id: l.veiculo_id, titulo: l.descricao }, () => toast("Agendado! Veja na Agenda.")); else if (acao === "ok") mudar(l, "concluido"); else if (editar) abrir(l);
     };
     el.querySelector("#busca").oninput = desenhar;
     el.querySelector(".chips").onclick = (e) => { const b = e.target.closest("[data-f]"); if (!b) return; filtro = b.dataset.f; el.querySelectorAll(".chip").forEach((c) => c.classList.toggle("ativo", c === b)); desenhar(); };
@@ -1747,6 +1873,275 @@ const comprasUI = {
   },
 };
 
+// ===================== FOTOS, GARANTIA VIGENTE E FICHA DO VEÍCULO =====================
+// Reduz a foto do celular (de vários MB para algumas centenas de KB) antes de enviar.
+async function reduzirImagem(file, max = 1600, qual = 0.82) {
+  try {
+    const bmp = await createImageBitmap(file), k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((res) => c.toBlob((b) => res(b || file), "image/jpeg", qual));
+  } catch (e) { return file; }
+}
+
+// Garantias ainda valendo (o que ocorrer primeiro entre prazo e KM encerra a garantia).
+function calcGarantias(itens, kmAtual) {
+  const hoje = new Date(hojeISO() + "T00:00:00");
+  return itens.filter((i) => (i.garantia_dias || i.garantia_km) && i.os && i.os.status === "entregue").map((i) => {
+    const fim = i.garantia_dias && i.os.data_entrega ? new Date(new Date(i.os.data_entrega).getTime() + i.garantia_dias * 864e5) : null;
+    const kmLim = i.garantia_km && i.os.km_entrada != null ? Number(i.os.km_entrada) + Number(i.garantia_km) : null;
+    const ok = (fim ? fim >= hoje : true) && (kmLim != null && kmAtual != null ? Number(kmAtual) <= kmLim : true);
+    return { descricao: i.descricao, numero: i.os.numero, fim, kmLim, ok: ok && (fim || kmLim != null) };
+  }).filter((g) => g.ok);
+}
+const garTexto = (g) => [g.fim && "até " + g.fim.toLocaleDateString("pt-BR"), g.kmLim != null && "até " + nBR(g.kmLim) + " km"].filter(Boolean).join(" ou ");
+
+// Ficha do veículo: tudo que já foi feito no carro, em ordem do mais recente.
+async function renderFicha(alvo, vid) {
+  alvo.innerHTML = '<p class="suave">Carregando…</p>';
+  const [v, os, lem] = await Promise.all([
+    sb.from("veiculos").select("*, clientes(nome,whatsapp,telefone)").eq("id", vid).single(),
+    sb.from("ordens_servico").select("id,numero,status,data_entrada,data_entrega,km_entrada,defeito_relatado,diagnostico,desconto,os_itens(tipo,descricao,quantidade,valor_unitario,garantia_dias,garantia_km),os_fotos(count)")
+      .eq("veiculo_id", vid).order("numero", { ascending: false }),
+    sb.from("lembretes_revisao").select("*").eq("veiculo_id", vid).in("status", ["pendente", "enviado"]).order("data_prevista")]);
+  if (v.error || os.error) { alvo.innerHTML = '<p class="suave">Não consegui carregar o histórico.</p>'; return; }
+  const ve = v.data, lista = os.data || [], totalOS = (o) => (o.os_itens || []).reduce((s, i) => s + i.quantidade * i.valor_unitario, 0) - Number(o.desconto || 0);
+  const feitas = lista.filter((o) => ["concluido", "entregue"].includes(o.status));
+  const gar = calcGarantias(lista.flatMap((o) => (o.os_itens || []).map((i) => ({ ...i, os: o }))), ve.km_atual);
+  alvo.innerHTML = `
+    <div class="ficha-topo"><div><b>${esc([ve.marca, ve.modelo, ve.ano].filter(Boolean).join(" "))}</b> · ${esc(ve.placa)}${ve.cor ? " · " + esc(ve.cor) : ""}<br>
+      <span class="suave">Cliente: ${esc(ve.clientes?.nome || "")} · KM atual: ${ve.km_atual != null ? nBR(ve.km_atual) : "—"}</span></div>
+      <div class="ficha-kpis"><span><b>${lista.length}</b> OS</span><span><b>${brl(feitas.reduce((s, o) => s + totalOS(o), 0))}</b> em serviços</span></div></div>
+    ${gar.length ? `<div class="alerta-garantia"><b>⚠ Garantias vigentes</b><ul>${gar.map((g) => `<li>${esc(g.descricao)} <span class="suave">(OS #${g.numero}, ${garTexto(g)})</span></li>`).join("")}</ul></div>` : ""}
+    ${(lem.data || []).length ? `<div class="aviso"><b>🔔 Lembretes pendentes:</b> ${lem.data.map((l) => `${esc(l.descricao)} <span class="suave">(${[l.data_prevista && dataBR(l.data_prevista), l.km_previsto && nBR(l.km_previsto) + " km"].filter(Boolean).join(" ou ")})</span>`).join(" · ")}</div>` : ""}
+    ${lista.length ? lista.map((o) => `<div class="ficha-os"><div class="ficha-cab"><b>OS #${o.numero}</b> ${badgeOS(o.status)}<span class="suave">${dataBR(o.data_entrega || o.data_entrada)}${o.km_entrada != null ? " · " + nBR(o.km_entrada) + " km" : ""}${o.os_fotos?.[0]?.count ? " · 📷 " + o.os_fotos[0].count : ""}</span><b style="margin-left:auto">${brl(totalOS(o))}</b></div>
+      ${o.defeito_relatado ? `<div class="peq-txt"><b>Defeito:</b> ${esc(o.defeito_relatado)}</div>` : ""}${o.diagnostico ? `<div class="peq-txt"><b>Diagnóstico:</b> ${esc(o.diagnostico)}</div>` : ""}
+      <ul class="ficha-itens">${(o.os_itens || []).map((i) => `<li>${i.tipo === "servico" ? "🔧" : "⚙️"} ${esc(i.descricao)}${i.quantidade != 1 ? " ×" + nBR(i.quantidade) : ""}</li>`).join("") || "<li class='suave'>Sem itens lançados.</li>"}</ul></div>`).join("")
+      : '<p class="suave">Este veículo ainda não tem ordens de serviço.</p>'}`;
+}
+function abrirFichaVeiculo(vid) { const m = modal("Ficha do veículo", '<div id="ficha"></div>', true); renderFicha(m.querySelector("#ficha"), vid); }
+
+// ===================== PACOTES DE SERVIÇO =====================
+MODULOS.pacotes = {
+  async render(el, ctx) {
+    const editar = ["dono", "atendente"].includes(ctx.perfil.papel);
+    let linhas = [], servicos = [], produtos = [];
+    const carregar = async () => {
+      const [a, s, p] = await Promise.all([
+        sb.from("pacotes").select("*, pacote_itens(id,tipo,servico_id,produto_id,quantidade)").order("nome"),
+        sb.from("servicos_catalogo").select("id,nome,preco_padrao").order("nome"), sb.from("produtos").select("id,nome,codigo,preco_venda").order("nome")]);
+      if (a.error) throw a.error; linhas = a.data; servicos = s.data || []; produtos = p.data || [];
+    };
+    try { await carregar(); } catch (e) { el.innerHTML = `<div class="aviso erro">Não consegui abrir os pacotes. Se for a primeira vez, rode o arquivo <b>09_dia_a_dia.sql</b> no Supabase e recarregue.<br><span class="suave">${esc(e.message || e)}</span></div>`; return; }
+    const nomeItem = (i) => i.tipo === "servico" ? (servicos.find((x) => x.id === i.servico_id) || {}).nome : (produtos.find((x) => x.id === i.produto_id) || {}).nome;
+    const preco = (i) => Number(i.tipo === "servico" ? (servicos.find((x) => x.id === i.servico_id) || {}).preco_padrao : (produtos.find((x) => x.id === i.produto_id) || {}).preco_venda) || 0;
+    el.innerHTML = `<div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar pacote…">${editar ? '<button class="btn" id="novo" type="button">+ Novo pacote</button>' : ""}</div>
+      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Pacote</th><th>O que inclui</th><th>Valor estimado</th><th>Situação</th></tr></thead><tbody id="corpo"></tbody></table></div>
+      <p class="suave" style="margin-top:10px">Use o botão <b>+ Pacote</b> dentro da OS: todos os itens entram de uma vez, com o preço e a garantia do cadastro, e você ainda pode ajustar.</p>`;
+    const corpo = el.querySelector("#corpo");
+    const desenhar = () => {
+      const q = normBusca(el.querySelector("#busca").value);
+      const vis = linhas.filter((p) => !q || normBusca(p.nome + " " + (p.descricao || "")).includes(q));
+      corpo.innerHTML = vis.length ? vis.map((p) => { const it = p.pacote_itens || [];
+        return `<tr class="${editar ? "clicavel" : ""}" data-id="${p.id}"><td><b>${esc(p.nome)}</b>${p.descricao ? `<br><span class="suave">${esc(p.descricao)}</span>` : ""}</td>
+          <td>${it.length} item(ns)<br><span class="suave">${esc(it.slice(0, 3).map(nomeItem).filter(Boolean).join(", "))}${it.length > 3 ? "…" : ""}</span></td>
+          <td><b>${brl(it.reduce((s, i) => s + i.quantidade * preco(i), 0))}</b></td><td>${p.ativo ? badgeCor("Ativo", "#46d39a") : badgeCor("Inativo", "#9db0ac")}</td></tr>`; }).join("")
+        : '<tr><td colspan="4" class="suave centro">Nenhum pacote ainda. Crie o primeiro, por exemplo "Revisão 10 mil km".</td></tr>';
+    };
+    const abrir = (pc) => {
+      const itens = (pc?.pacote_itens || []).map((i) => ({ ...i })), antigos = itens.map((i) => i.id);
+      const m = modal(pc ? "Editar pacote" : "Novo pacote", `<div class="grade-form">
+        <div class="campo larga"><label for="pc_nome">Nome do pacote *</label><input id="pc_nome" placeholder="ex.: Revisão de 10 mil km" value="${esc(pc?.nome)}"></div>
+        <div class="campo larga"><label for="pc_desc">Descrição (opcional)</label><input id="pc_desc" value="${esc(pc?.descricao)}"></div>
+        <div class="campo"><label for="pc_ativo">Situação</label><select id="pc_ativo"><option value="true" ${pc && !pc.ativo ? "" : "selected"}>Ativo</option><option value="false" ${pc && !pc.ativo ? "selected" : ""}>Inativo</option></select></div></div>
+        <h4>Itens do pacote</h4><div class="tabela-wrap"><table class="tabela itens itens-compra"><thead><tr><th>Tipo</th><th>Item</th><th>Qtd</th><th>Valor est.</th><th></th></tr></thead><tbody id="pc_itens"></tbody></table></div>
+        <div class="acoes-item"><button class="btn btn-sec" id="pc_srv" type="button">+ Serviço</button><button class="btn btn-sec" id="pc_prd" type="button">+ Peça</button></div>
+        <div class="totais"><div class="geral"><span>Valor estimado</span><span id="pc_total"></span></div></div>
+        <div class="acoes">${pc ? '<button class="btn btn-perigo" id="pc_del" type="button">Excluir</button>' : ""}<span style="flex:1"></span><button class="btn btn-sec" id="pc_x" type="button">Cancelar</button><button class="btn" id="pc_ok" type="button">Salvar</button></div>`, true);
+      const $ = (s) => m.querySelector(s);
+      const total = () => { $("#pc_total").textContent = brl(itens.reduce((s, i) => s + Number(i.quantidade || 0) * preco(i), 0)); m.querySelectorAll("#pc_itens tr[data-i] .tot").forEach((td) => { const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * preco(i)); }); };
+      const linhasItens = () => {
+        $("#pc_itens").innerHTML = itens.length ? itens.map((it, i) => `<tr data-i="${i}"><td>${it.tipo === "servico" ? "Serviço" : "Peça"}</td>
+          <td><select data-c="pick" data-busca data-titulo="${it.tipo === "servico" ? "Buscar serviço" : "Buscar peça"}"><option value="">— Escolha —</option>${it.tipo === "servico"
+            ? servicos.map((s) => `<option value="${s.id}" data-sub="${brl(s.preco_padrao)}" ${it.servico_id === s.id ? "selected" : ""}>${esc(s.nome)}</option>`).join("")
+            : produtos.map((p) => `<option value="${p.id}" data-sub="${brl(p.preco_venda)}" ${it.produto_id === p.id ? "selected" : ""}>${esc((p.codigo ? p.codigo + " · " : "") + p.nome)}</option>`).join("")}</select></td>
+          <td><input class="num" data-c="quantidade" type="number" step="0.01" min="0.01" value="${it.quantidade}"></td><td class="tot"></td><td><button class="x-linha" data-c="rem" type="button" aria-label="Remover">×</button></td></tr>`).join("")
+          : '<tr><td colspan="5" class="suave centro">Nenhum item ainda. Use os botões abaixo.</td></tr>';
+        ativarBuscas($("#pc_itens")); total();
+      };
+      $("#pc_srv").onclick = () => { itens.push({ tipo: "servico", servico_id: "", produto_id: null, quantidade: 1 }); linhasItens(); };
+      $("#pc_prd").onclick = () => { itens.push({ tipo: "peca", produto_id: "", servico_id: null, quantidade: 1 }); linhasItens(); };
+      $("#pc_itens").addEventListener("input", (e) => { if (e.target.dataset.c !== "quantidade") return; itens[e.target.closest("tr").dataset.i].quantidade = Number(e.target.value) || 0; total(); });
+      $("#pc_itens").addEventListener("change", (e) => { if (e.target.dataset.c !== "pick") return; const it = itens[e.target.closest("tr").dataset.i]; it[it.tipo === "servico" ? "servico_id" : "produto_id"] = e.target.value; total(); });
+      $("#pc_itens").addEventListener("click", (e) => { if (e.target.dataset.c === "rem") { itens.splice(e.target.closest("tr").dataset.i, 1); linhasItens(); } });
+      $("#pc_x").onclick = m.fechar; linhasItens();
+      $("#pc_ok").onclick = async () => {
+        const nome = $("#pc_nome").value.trim();
+        if (!nome) { toast("Dê um nome ao pacote.", "erro"); return; }
+        if (!itens.length) { toast("Adicione pelo menos um item.", "erro"); return; }
+        if (itens.some((i) => !(i.tipo === "servico" ? i.servico_id : i.produto_id) || !(Number(i.quantidade) > 0))) { toast("Escolha o item e a quantidade em todas as linhas.", "erro"); return; }
+        const dados = { nome, descricao: $("#pc_desc").value.trim() || null, ativo: $("#pc_ativo").value === "true" };
+        $("#pc_ok").disabled = true; let id = pc?.id, criou = false;
+        try {
+          if (!pc) { const r = await sb.from("pacotes").insert(dados).select("id").single(); if (r.error) throw r.error; id = r.data.id; criou = true; }
+          else { const r = await sb.from("pacotes").update(dados).eq("id", id); if (r.error) throw r.error; }
+          const novos = itens.map((i) => ({ pacote_id: id, tipo: i.tipo, servico_id: i.tipo === "servico" ? i.servico_id : null, produto_id: i.tipo === "peca" ? i.produto_id : null, quantidade: Number(i.quantidade) }));
+          const ri = await sb.from("pacote_itens").insert(novos);
+          if (ri.error) { if (criou) await sb.from("pacotes").delete().eq("id", id); throw ri.error; }
+          if (antigos.length) await sb.from("pacote_itens").delete().in("id", antigos);
+          toast("Pacote salvo!"); m.fechar(); await carregar(); desenhar();
+        } catch (e) { console.error(e); toast(erroAmigavel(e), "erro"); $("#pc_ok").disabled = false; }
+      };
+      const del = $("#pc_del");
+      if (del) del.onclick = async () => {
+        if (!confirm("Excluir este pacote? As OS que já usaram o pacote não mudam.")) return;
+        const r = await sb.from("pacotes").delete().eq("id", pc.id);
+        if (r.error) { toast(erroAmigavel(r.error), "erro"); return; }
+        toast("Pacote excluído."); m.fechar(); await carregar(); desenhar();
+      };
+    };
+    el.querySelector("#busca").oninput = desenhar;
+    corpo.onclick = (e) => { const tr = e.target.closest("tr[data-id]"); if (tr && editar) abrir(linhas.find((l) => l.id === tr.dataset.id)); };
+    if (editar) el.querySelector("#novo").onclick = () => abrir(null);
+    desenhar();
+  },
+};
+
+// ===================== AGENDA =====================
+const STATUS_AG = { agendado: ["Agendado", "#fcd34a"], confirmado: ["Confirmado", "#46d39a"], compareceu: ["Compareceu", "#5cc8ff"], faltou: ["Faltou", "#ff9f45"], cancelado: ["Cancelado", "#9db0ac"] };
+const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const isoLocal = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const somaDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return isoLocal(d); };
+const inicioSemana = (iso) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoLocal(d); };
+const diaRange = (iso) => [new Date(iso + "T00:00:00").toISOString(), new Date(somaDias(iso, 1) + "T00:00:00").toISOString()];
+const horaDe = (ts) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const durTxt = (n) => (n < 60 ? n + " min" : n % 60 ? `${Math.floor(n / 60)}h${pad2(n % 60)}` : n / 60 + " h");
+const SEL_AG = "*, clientes(nome,whatsapp,telefone), veiculos(placa,marca,modelo,km_atual), mecanico:perfis!mecanico_id(nome)";
+
+function msgAgenda(a) {
+  const c = a.clientes || {}, v = a.veiculos || {}, d = new Date(a.inicio);
+  const veic = [v.marca, v.modelo].filter(Boolean).join(" ") + (v.placa ? ` (${v.placa})` : "");
+  return `*${CONFIG.NOME_OFICINA}*\nOlá, ${(c.nome || "").split(" ")[0]}! Confirmando o seu horário: *${d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" })}, às ${horaDe(a.inicio)}* — ${a.titulo}${veic.trim() ? " do seu " + veic : ""}.\n\nPode confirmar? Responda *SIM* que deixamos reservado. 👍`;
+}
+
+// Transforma o agendamento em uma OS (status Orçamento) e abre a OS para completar.
+async function criarOSdoAgendamento(a, depois) {
+  if (!a.cliente_id || !a.veiculo_id) { toast("Informe o cliente e o veículo no agendamento.", "erro"); return; }
+  const r = await sb.from("ordens_servico").insert({ cliente_id: a.cliente_id, veiculo_id: a.veiculo_id, mecanico_id: a.mecanico_id || null, defeito_relatado: a.titulo,
+    km_entrada: a.veiculos?.km_atual ?? null, status: "orcamento" }).select("id,numero").single();
+  if (r.error) { toast(erroAmigavel(r.error), "erro"); return; }
+  await sb.from("agendamentos").update({ os_id: r.data.id, status: "compareceu" }).eq("id", a.id);
+  toast(`OS #${r.data.numero} criada a partir do agendamento.`);
+  if (depois) depois();
+  window.__osPendente = r.data.id; location.hash = "#/os";
+}
+
+// Janela de agendamento (usada pela Agenda e pelos Lembretes). preset: { cliente_id, veiculo_id, titulo, data, hora }
+async function abrirAgendamento(reg, preset, depois) {
+  const novo = !reg, o = reg || preset || {}, papel = window.CTX.perfil.papel;
+  const [cli, vei, mec] = await Promise.all([sb.from("clientes").select("id,nome").order("nome"), sb.from("veiculos").select("id,cliente_id,placa,marca,modelo").order("placa"),
+    sb.from("perfis").select("id,nome").in("papel", ["mecanico", "dono"]).eq("ativo", true).order("nome")]);
+  const clientes = cli.data || [], veiculos = vei.data || [], mecs = mec.data || [];
+  const clienteId = o.cliente_id || (o.veiculo_id ? (veiculos.find((v) => v.id === o.veiculo_id) || {}).cliente_id : "") || "";
+  const ini = reg ? new Date(reg.inicio) : null;
+  const dataVal = reg ? isoLocal(ini) : o.data || window.__agendaDia || hojeISO(), horaVal = reg ? `${pad2(ini.getHours())}:${pad2(ini.getMinutes())}` : o.hora || "09:00";
+  const opV = (cid, sel) => { const l = cid ? veiculos.filter((v) => v.cliente_id === cid) : [], auto = sel || (l.length === 1 ? l[0].id : "");
+    return `<option value="">${cid ? "Selecione…" : "Selecione o cliente primeiro"}</option>` + l.map((v) => `<option value="${v.id}" ${v.id === auto ? "selected" : ""}>${esc(v.placa + " · " + [v.marca, v.modelo].filter(Boolean).join(" "))}</option>`).join(""); };
+  const m = modal(novo ? "Novo agendamento" : "Agendamento", `<div class="grade-form">
+    <div class="campo"><label for="ag_cli">Cliente *</label><select id="ag_cli" data-busca data-titulo="Buscar cliente"><option value="">Selecione…</option>${clientes.map((c) => `<option value="${c.id}" ${c.id === clienteId ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</select></div>
+    <div class="campo"><label for="ag_vei">Veículo *</label><select id="ag_vei" data-busca data-titulo="Buscar veículo">${opV(clienteId, o.veiculo_id)}</select></div>
+    <div class="campo"><label for="ag_data">Data *</label><input id="ag_data" type="date" value="${dataVal}"></div>
+    <div class="campo"><label for="ag_hora">Hora *</label><input id="ag_hora" type="time" step="900" value="${horaVal}"></div>
+    <div class="campo"><label for="ag_dur">Duração prevista</label><select id="ag_dur">${[30, 45, 60, 90, 120, 180, 240, 480].map((n) => `<option value="${n}" ${n === (o.duracao_min || 60) ? "selected" : ""}>${durTxt(n)}</option>`).join("")}</select></div>
+    <div class="campo"><label for="ag_mec">Mecânico</label><select id="ag_mec"><option value="">Sem mecânico definido</option>${mecs.map((x) => `<option value="${x.id}" ${x.id === o.mecanico_id ? "selected" : ""}>${esc(x.nome)}</option>`).join("")}</select></div>
+    <div class="campo larga"><label for="ag_tit">O que será feito *</label><input id="ag_tit" placeholder="ex.: Troca de óleo e filtros" value="${esc(o.titulo)}"></div>
+    <div class="campo larga"><label for="ag_obs">Observações</label><textarea id="ag_obs" rows="2">${esc(o.observacoes)}</textarea></div>
+    ${novo ? "" : `<div class="campo"><label for="ag_sta">Situação</label><select id="ag_sta">${Object.entries(STATUS_AG).map(([k, v]) => `<option value="${k}" ${k === reg.status ? "selected" : ""}>${v[0]}</option>`).join("")}</select></div>`}</div>
+    <div class="acoes">${!novo ? '<button class="btn btn-perigo" id="ag_del" type="button">Excluir</button>' : ""}<span style="flex:1"></span>
+      ${!novo && !reg.os_id && reg.status !== "cancelado" ? '<button class="btn btn-sec" id="ag_os" type="button">Criar OS</button>' : ""}${!novo && reg.os_id ? '<button class="btn btn-sec" id="ag_vos" type="button">Ver OS</button>' : ""}
+      <button class="btn btn-sec" id="ag_x" type="button">Fechar</button><button class="btn" id="ag_ok" type="button">Salvar</button></div>`);
+  const $ = (s) => m.querySelector(s);
+  $("#ag_cli").onchange = (e) => { $("#ag_vei").innerHTML = opV(e.target.value, ""); };
+  $("#ag_x").onclick = m.fechar;
+  if ($("#ag_os")) $("#ag_os").onclick = () => { m.fechar(); criarOSdoAgendamento(reg, depois); };
+  if ($("#ag_vos")) $("#ag_vos").onclick = () => { m.fechar(); window.__osPendente = reg.os_id; location.hash = "#/os"; };
+  if ($("#ag_del")) $("#ag_del").onclick = async () => {
+    if (!confirm("Excluir este agendamento?")) return;
+    const r = await sb.from("agendamentos").delete().eq("id", reg.id);
+    if (r.error) { toast(erroAmigavel(r.error), "erro"); return; }
+    toast("Agendamento excluído."); m.fechar(); if (depois) depois();
+  };
+  $("#ag_ok").onclick = async () => {
+    const cid = $("#ag_cli").value, vid = $("#ag_vei").value, data = $("#ag_data").value, hora = $("#ag_hora").value, titulo = $("#ag_tit").value.trim(), dur = Number($("#ag_dur").value), mecId = $("#ag_mec").value || null;
+    if (!cid || !vid) { toast("Escolha o cliente e o veículo.", "erro"); return; }
+    if (!data || !hora) { toast("Informe a data e a hora.", "erro"); return; }
+    if (!titulo) { toast("Diga o que será feito.", "erro"); return; }
+    const inicio = new Date(`${data}T${hora}:00`);
+    if (mecId) {
+      const [a, b] = diaRange(data), r = await sb.from("agendamentos").select("id,inicio,duracao_min,titulo").eq("mecanico_id", mecId).gte("inicio", a).lt("inicio", b).neq("status", "cancelado");
+      const fim = inicio.getTime() + dur * 60000;
+      const conf = (r.data || []).filter((x) => x.id !== reg?.id && new Date(x.inicio).getTime() < fim && new Date(x.inicio).getTime() + x.duracao_min * 60000 > inicio.getTime());
+      if (conf.length && !confirm(`Esse mecânico já tem um horário nesse período (${horaDe(conf[0].inicio)} · ${conf[0].titulo}). Agendar mesmo assim?`)) return;
+    }
+    const dados = { inicio: inicio.toISOString(), duracao_min: dur, cliente_id: cid, veiculo_id: vid, mecanico_id: mecId, titulo, observacoes: $("#ag_obs").value.trim() || null, status: novo ? "agendado" : $("#ag_sta").value };
+    $("#ag_ok").disabled = true;
+    const r = novo ? await sb.from("agendamentos").insert(dados) : await sb.from("agendamentos").update(dados).eq("id", reg.id);
+    if (r.error) { toast(erroAmigavel(r.error), "erro"); $("#ag_ok").disabled = false; return; }
+    window.__agendaDia = data; toast("Agendamento salvo!"); m.fechar(); if (depois) depois();
+  };
+}
+
+MODULOS.agenda = {
+  async render(el, ctx) {
+    const editar = ["dono", "atendente"].includes(ctx.perfil.papel);
+    let dia = window.__agendaDia || hojeISO(), semana = [], semIni = "";
+    const carregar = async () => {
+      semIni = inicioSemana(dia);
+      const r = await sb.from("agendamentos").select(SEL_AG).gte("inicio", diaRange(semIni)[0]).lt("inicio", diaRange(somaDias(semIni, 6))[1]).order("inicio");
+      if (r.error) throw r.error; semana = r.data || [];
+    };
+    try { await carregar(); } catch (e) { el.innerHTML = `<div class="aviso erro">Não consegui abrir a agenda. Se for a primeira vez, rode o arquivo <b>09_dia_a_dia.sql</b> no Supabase e recarregue.<br><span class="suave">${esc(e.message || e)}</span></div>`; return; }
+    el.innerHTML = `<div class="agenda-barra"><button class="btn btn-sec" id="ag-ant" type="button" aria-label="Dia anterior">◀</button><input id="ag-data" type="date"><button class="btn btn-sec" id="ag-prox" type="button" aria-label="Próximo dia">▶</button>
+      <button class="btn btn-sec" id="ag-hoje" type="button">Hoje</button><span style="flex:1"></span>${editar ? '<button class="btn" id="ag-novo" type="button">+ Novo agendamento</button>' : ""}</div>
+      <div class="semana" id="ag-semana"></div><div id="ag-dia"></div>`;
+    const doDia = (iso) => semana.filter((a) => isoLocal(new Date(a.inicio)) === iso);
+    const desenhar = () => {
+      window.__agendaDia = dia; el.querySelector("#ag-data").value = dia;
+      el.querySelector("#ag-semana").innerHTML = Array.from({ length: 7 }, (_, i) => { const d = somaDias(semIni, i), n = doDia(d).filter((a) => a.status !== "cancelado").length;
+        return `<button class="dia-bt ${d === dia ? "sel" : ""} ${d === hojeISO() ? "hoje" : ""}" data-d="${d}" type="button"><small>${DIAS_CURTOS[new Date(d + "T12:00:00").getDay()]}</small><b>${d.slice(8)}</b><i>${n || ""}</i></button>`; }).join("");
+      const lista = doDia(dia), ativos = lista.filter((a) => a.status !== "cancelado");
+      el.querySelector("#ag-dia").innerHTML = `<h3 class="primeira-maiuscula" style="margin-bottom:12px">${new Date(dia + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+        <span class="suave" style="font-size:.9rem;text-transform:none;font-weight:500"> · ${ativos.length} agendamento(s)${ativos.filter((a) => a.status === "confirmado").length ? `, ${ativos.filter((a) => a.status === "confirmado").length} confirmado(s)` : ""}</span></h3>`
+        + (lista.length ? lista.map((a) => { const v = a.veiculos || {}, st = STATUS_AG[a.status], fim = new Date(new Date(a.inicio).getTime() + a.duracao_min * 60000);
+          return `<div class="ag-card" data-id="${a.id}" style="--cor:${st[1]}${a.status === "cancelado" ? ";opacity:.55" : ""}"><div class="ag-hora"><b>${horaDe(a.inicio)}</b><small>até ${horaDe(fim)}</small></div>
+            <div><b>${esc(a.titulo)}</b><br><span class="suave">${esc(a.clientes?.nome || "")} · ${esc(v.placa || "")} ${esc(v.modelo || "")}${a.mecanico ? " · 🔧 " + esc(a.mecanico.nome) : ""}</span>${a.observacoes ? `<br><span class="peq-txt">${esc(a.observacoes)}</span>` : ""}</div>
+            <div class="ag-acoes">${badgeCor(st[0], st[1])}${editar && ["agendado", "confirmado"].includes(a.status) ? `<button class="mini zap" data-ac="zap" type="button">WhatsApp</button>${a.status === "agendado" ? '<button class="mini" data-ac="conf" type="button">✓ Confirmar</button>' : ""}${a.os_id ? "" : '<button class="mini" data-ac="os" type="button">Criar OS</button>'}` : ""}${a.os_id ? '<button class="mini" data-ac="vos" type="button">Ver OS</button>' : ""}</div></div>`; }).join("")
+          : `<div class="vazio" style="padding:40px 0"><p class="suave">Nenhum agendamento neste dia.</p>${editar ? '<button class="btn" id="ag-novo2" type="button" style="margin-top:12px">+ Agendar um horário</button>' : ""}</div>`);
+      const n2 = el.querySelector("#ag-novo2"); if (n2) n2.onclick = () => abrirAgendamento(null, { data: dia }, recarregar);
+    };
+    const recarregar = async () => { await carregar(); desenhar(); };
+    const ir = async (novo) => { const mudouSemana = inicioSemana(novo) !== semIni; dia = novo; if (mudouSemana) await carregar(); desenhar(); };
+    el.querySelector("#ag-ant").onclick = () => ir(somaDias(dia, -1)); el.querySelector("#ag-prox").onclick = () => ir(somaDias(dia, 1));
+    el.querySelector("#ag-hoje").onclick = () => ir(hojeISO()); el.querySelector("#ag-data").onchange = (e) => e.target.value && ir(e.target.value);
+    el.querySelector("#ag-semana").onclick = (e) => { const b = e.target.closest("[data-d]"); if (b) ir(b.dataset.d); };
+    if (editar) el.querySelector("#ag-novo").onclick = () => abrirAgendamento(null, { data: dia }, recarregar);
+    el.querySelector("#ag-dia").onclick = async (e) => {
+      const card = e.target.closest(".ag-card"); if (!card) return;
+      const a = semana.find((x) => x.id === card.dataset.id), ac = e.target.closest("[data-ac]")?.dataset.ac;
+      if (ac === "zap") {
+        const w = window.open("", "_blank"); if (!w) { toast("Permita pop-ups para este site.", "erro"); return; }
+        const c = a.clientes || {}, num = String(c.whatsapp || c.telefone || "").replace(/\D/g, ""), tel = num.length >= 10 ? (num.length <= 11 ? "55" + num : num) : "";
+        if (!tel) toast("Cliente sem WhatsApp cadastrado. Escolha o contato manualmente.", "erro");
+        w.location.href = `https://wa.me/${tel}?text=${encodeURIComponent(msgAgenda(a))}`;
+      } else if (ac === "conf") { const r = await sb.from("agendamentos").update({ status: "confirmado" }).eq("id", a.id); if (r.error) toast(erroAmigavel(r.error), "erro"); else { toast("Confirmado!"); recarregar(); } }
+      else if (ac === "os") criarOSdoAgendamento(a, recarregar);
+      else if (ac === "vos") { window.__osPendente = a.os_id; location.hash = "#/os"; }
+      else if (editar) abrirAgendamento(a, null, recarregar);
+    };
+    desenhar();
+  },
+};
+
 // Telas do menu lateral: Estoque > Peças / Compras e Financeiro > Resumo / A receber / Recebimentos / Despesas
 MODULOS.pecas = estoquePecas;
 MODULOS.compras = comprasUI;
@@ -1833,14 +2228,13 @@ const MAPA_CNPJ_CONFIG = { doc: "#c_cnpj", telefone: "#c_tel", email: "#c_mail",
 function ativarBuscaCnpj(raiz, mapa) {
   const doc = raiz.querySelector(mapa.doc); if (!doc) return;
   const campo = doc.closest(".campo");
-  campo.insertAdjacentHTML("beforeend", '<div class="cnpj-acao" hidden><button class="mini" type="button" data-cnpj>🔎 Buscar dados pelo CNPJ</button><small class="suave" data-cnpj-msg></small></div>');
-  const caixa = campo.querySelector(".cnpj-acao"), btn = campo.querySelector("[data-cnpj]"), msg = campo.querySelector("[data-cnpj-msg]");
+  campo.insertAdjacentHTML("beforeend", '<div class="cnpj-acao"><button class="mini" type="button" data-cnpj>🔎 Buscar dados pelo CNPJ</button><small class="suave" data-cnpj-msg>Para empresas: digite o CNPJ e clique para preencher os dados.</small></div>');
+  const btn = campo.querySelector("[data-cnpj]"), msg = campo.querySelector("[data-cnpj-msg]");
   const dig = () => doc.value.replace(/\D/g, "");
-  const atualizar = () => { caixa.hidden = dig().length !== 14; };
-  doc.addEventListener("input", atualizar); atualizar();
 
   btn.onclick = async () => {
     const c = dig();
+    if (c.length !== 14) { toast("Digite o CNPJ completo (14 números) para buscar. CPF não tem consulta.", "erro"); doc.focus(); return; }
     if (!cnpjValido(c)) { toast("CNPJ inválido. Confira os números.", "erro"); return; }
     btn.disabled = true; msg.className = "suave"; msg.textContent = "Consultando a Receita…";
     try {
@@ -1960,15 +2354,18 @@ MODULOS.equipe = {
 };
 
 // Núcleo do sistema: login obrigatório, menu por perfil e navegação entre telas
+const VERSAO_SISTEMA = "2026.11.10-d";
 const TODOS = ["dono", "atendente", "mecanico", "contador"];
 // Itens com "filhos" viram grupos que abrem e fecham no menu lateral.
 const MENU = [
   { id: "painel", rotulo: "Painel", papeis: TODOS },
+  { id: "agenda", rotulo: "Agenda", papeis: ["dono", "atendente", "mecanico"] },
   { id: "os", rotulo: "Ordens de Serviço", papeis: TODOS },
   { id: "cadastros", rotulo: "Cadastros", filhos: [
     { id: "clientes", rotulo: "Clientes", papeis: ["dono", "atendente"] },
     { id: "veiculos", rotulo: "Veículos", papeis: ["dono", "atendente"] },
     { id: "servicos", rotulo: "Serviços", papeis: ["dono", "atendente"] },
+    { id: "pacotes", rotulo: "Pacotes", papeis: ["dono", "atendente"] },
     { id: "fornecedores", rotulo: "Fornecedores", papeis: ["dono", "atendente"] },
   ] },
   { id: "estoque", rotulo: "Estoque", filhos: [
@@ -2088,6 +2485,7 @@ async function navegar() {
   document.getElementById("avatar").textContent = (perfil.nome || "?").trim().charAt(0).toUpperCase();
   document.getElementById("data-topo").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
   document.getElementById("usuario-papel").textContent = NOMES_PAPEL[perfil.papel] || perfil.papel;
+  document.getElementById("versao").textContent = "Versão " + VERSAO_SISTEMA;
   desenharMenu(perfil.papel);
   await carregarConfig();
   window.CTX.rotasPermitidas = menuPermitido.map((m) => m.id);
