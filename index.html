@@ -700,7 +700,8 @@ MODULOS.os = {
         <div class="tabela-wrap"><table class="tabela itens"><thead><tr><th>Tipo</th><th>Do catálogo</th><th>Descrição</th><th>Qtd</th><th>Valor un.</th><th>Garantia</th><th>Total</th><th></th></tr></thead><tbody id="itens"></tbody></table></div>
         <div class="acoes-item"><button class="btn btn-sec" id="add-srv" type="button">+ Serviço</button><button class="btn btn-sec" id="add-prd" type="button">+ Peça</button><button class="btn btn-sec" id="add-pct" type="button">+ Pacote</button></div>
         <div class="grade-form"><div class="campo larga"><label>Observações</label><textarea id="f_obs" rows="2">${esc(o.observacoes)}</textarea></div>
-          <div class="campo"><label>Desconto (R$)</label><input id="f_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div></div>
+          <div class="campo"><label>Desconto (R$)</label><input id="f_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div>
+          <div class="campo"><label>Motivo do desconto (aparece para o cliente)</label><input id="f_desc_motivo" placeholder="ex.: Pacote Troca de óleo" value="${esc(o.desconto_motivo)}"></div></div>
         <div class="totais"><div><span>Subtotal</span><span id="t-sub"></span></div><div class="geral"><span>Total</span><span id="t-total"></span></div>
           ${os ? `<div><span>Pago</span><span id="t-pago">${brl(o.pago)}</span></div><div><span>Saldo</span><span id="t-saldo"></span></div>` : ""}</div>
         <div class="acoes">${os && papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir OS</button>' : ""}<span style="flex:1"></span>
@@ -740,7 +741,7 @@ MODULOS.os = {
       $("#add-srv").onclick = () => novoItem("servico");
       $("#add-prd").onclick = () => novoItem("peca");
       $("#add-pct").onclick = async () => {
-        const r = await sb.from("pacotes").select("id,nome,descricao,pacote_itens(tipo,servico_id,produto_id,quantidade)").eq("ativo", true).order("nome");
+        const r = await sb.from("pacotes").select("id,nome,descricao,desconto_tipo,desconto_valor,pacote_itens(tipo,servico_id,produto_id,quantidade)").eq("ativo", true).order("nome");
         if (r.error || !(r.data || []).length) { toast(r.error ? "Rode o 09_dia_a_dia.sql para usar pacotes." : "Nenhum pacote cadastrado ainda (Cadastros › Pacotes).", "erro"); return; }
         const mp = modal("Adicionar pacote à OS", `<div class="campo"><label for="pc_sel">Pacote</label><select id="pc_sel" data-busca data-titulo="Buscar pacote"><option value="">Selecione…</option>${r.data.map((p) => `<option value="${p.id}" data-sub="${(p.pacote_itens || []).length} item(ns)">${esc(p.nome)}</option>`).join("")}</select></div>
           <div id="pc_prev" class="suave"></div><div class="acoes"><span style="flex:1"></span><button class="btn btn-sec" id="pc_x" type="button">Cancelar</button><button class="btn" id="pc_add" type="button">Adicionar à OS</button></div>`);
@@ -748,13 +749,22 @@ MODULOS.os = {
           if (i.tipo === "servico") { const s = servicos.find((x) => x.id === i.servico_id); return s && { tipo: "servico", servico_id: s.id, produto_id: null, descricao: s.nome, quantidade: Number(i.quantidade), valor_unitario: Number(s.preco_padrao), garantia_dias: s.garantia_dias, garantia_km: s.garantia_km }; }
           const p = produtos.find((x) => x.id === i.produto_id); return p && { tipo: "peca", produto_id: p.id, servico_id: null, descricao: p.nome, quantidade: Number(i.quantidade), valor_unitario: Number(p.preco_venda), garantia_dias: p.garantia_dias ?? null, garantia_km: p.garantia_km ?? null };
         });
-        mp.querySelector("#pc_sel").onchange = (e) => { const pc = r.data.find((x) => x.id === e.target.value); mp.querySelector("#pc_prev").innerHTML = pc ? (pc.descricao ? esc(pc.descricao) + "<br>" : "") + montar(pc).filter(Boolean).map((i) => `• ${esc(i.descricao)} ×${nBR(i.quantidade)} — ${brl(i.valor_unitario)}`).join("<br>") : ""; };
+        mp.querySelector("#pc_sel").onchange = (e) => {
+          const pc = r.data.find((x) => x.id === e.target.value), alvoPrev = mp.querySelector("#pc_prev");
+          if (!pc) { alvoPrev.innerHTML = ""; return; }
+          const lista = montar(pc).filter(Boolean), dp = descontoPacote(pc, lista);
+          alvoPrev.innerHTML = (pc.descricao ? esc(pc.descricao) + "<br>" : "") + lista.map((i) => `• ${esc(i.descricao)} ×${nBR(i.quantidade)} — ${brl(i.valor_unitario)}`).join("<br>")
+            + `<div class="totais" style="margin-top:10px"><div><span>Valor normal</span><span>${brl(dp.sub)}</span></div>${dp.desc > 0 ? `<div><span>Desconto do pacote</span><span>- ${brl(dp.desc)}</span></div>` : ""}<div class="geral"><span>Valor do pacote</span><span>${brl(dp.total)}</span></div>${dp.desc > 0 ? `<div style="color:var(--ok);font-weight:700;text-align:right">O cliente economiza ${brl(dp.desc)}</div>` : ""}</div>`;
+        };
         mp.querySelector("#pc_x").onclick = mp.fechar;
         mp.querySelector("#pc_add").onclick = () => {
           const pc = r.data.find((x) => x.id === mp.querySelector("#pc_sel").value); if (!pc) { toast("Escolha um pacote.", "erro"); return; }
           const novos = montar(pc), validos = novos.filter(Boolean);
-          validos.forEach((i) => itens.push(i)); linhasItens(); mp.fechar();
-          toast(`${validos.length} item(ns) do pacote adicionados.` + (novos.length > validos.length ? " Alguns itens inativos foram ignorados." : ""));
+          const dp = descontoPacote(pc, validos);
+          validos.forEach((i) => itens.push(i));
+          if (dp.desc > 0) { $("#f_desc").value = Math.round(((Number($("#f_desc").value) || 0) + dp.desc) * 100) / 100; const mot = $("#f_desc_motivo"), txt = "Pacote " + pc.nome; if (mot && !mot.value.includes(txt)) mot.value = mot.value.trim() ? mot.value.trim() + " + " + txt : txt; }
+          linhasItens(); mp.fechar();
+          toast(`${validos.length} item(ns) do pacote adicionados.` + (dp.desc > 0 ? ` Desconto de ${brl(dp.desc)} aplicado.` : "") + (novos.length > validos.length ? " Alguns itens inativos foram ignorados." : ""));
         };
       };
       $("#itens").addEventListener("input", (e) => {
@@ -784,7 +794,7 @@ MODULOS.os = {
           return { cliente: c.data || {}, veiculo: v.data || {}, itens: itens.map((i) => ({ ...i, quantidade: Number(i.quantidade), valor_unitario: Number(i.valor_unitario || 0) })),
             mecanico: (mecs.find((x) => x.id === $("#f_mecanico").value) || {}).nome || "",
             os: { ...o, status: $("#f_status").value, km_entrada: $("#f_km").value, validade_orcamento: $("#f_validade").value, defeito_relatado: $("#f_defeito").value,
-              diagnostico: $("#f_diag").value, observacoes: $("#f_obs").value, desconto: Number($("#f_desc").value || 0),
+              diagnostico: $("#f_diag").value, observacoes: $("#f_obs").value, desconto: Number($("#f_desc").value || 0), desconto_motivo: $("#f_desc_motivo").value.trim(),
               checklist: { itens: [...m.querySelectorAll(".checks input:checked")].map((x) => x.value), combustivel: $("#f_comb").value } } };
         };
         if ($("#receber-btn")) $("#receber-btn").onclick = () => {
@@ -880,7 +890,7 @@ MODULOS.os = {
       }
 
       if (papel === "contador") m.querySelectorAll("input,select,textarea,.x-linha,#add-srv,#add-prd,#add-pct,#salvar").forEach((x) => (x.disabled = true));
-      if (papel === "mecanico") ["#f_cliente", "#f_veiculo", "#f_mecanico", "#f_desc", "#f_validade"].forEach((s) => ($(s).disabled = true));
+      if (papel === "mecanico") ["#f_cliente", "#f_veiculo", "#f_mecanico", "#f_desc", "#f_desc_motivo", "#f_validade"].forEach((s) => ($(s).disabled = true));
 
       $("#salvar").onclick = async () => {
         const dados = { status: $("#f_status").value, diagnostico: $("#f_diag").value.trim() || null,
@@ -888,6 +898,7 @@ MODULOS.os = {
         if (editaTudo) Object.assign(dados, { cliente_id: $("#f_cliente").value || null, veiculo_id: $("#f_veiculo").value || null, mecanico_id: $("#f_mecanico").value || null,
           km_entrada: $("#f_km").value === "" ? null : Number($("#f_km").value), validade_orcamento: $("#f_validade").value || null,
           defeito_relatado: $("#f_defeito").value.trim() || null, desconto: Number($("#f_desc").value || 0), observacoes: $("#f_obs").value.trim() || null });
+        if (editaTudo) { const dm = $("#f_desc_motivo").value.trim(); if (dm) dados.desconto_motivo = dm; else if (o.desconto_motivo) dados.desconto_motivo = null; }
         if (editaTudo && (!dados.cliente_id || !dados.veiculo_id)) { toast("Escolha o cliente e o veículo.", "erro"); return; }
         if (itens.some((i) => !i.descricao.trim() || !(i.quantidade > 0))) { toast("Todo item precisa de descrição e quantidade.", "erro"); return; }
         const btn = $("#salvar"); btn.disabled = true; const antes = o.status;
@@ -953,6 +964,7 @@ td{padding:6px 8px;border-bottom:1px solid #e3e8e6}.d{text-align:right}
 .tot{margin:8px 0 0 auto;width:270px}.tot div{display:flex;justify-content:space-between;padding:2px 0}
 .tot .g{font-size:16px;font-weight:700;border-top:2px solid #fcd34a;padding-top:5px;margin-top:3px}
 .assin{display:flex;gap:40px;margin-top:50px;break-inside:avoid}.assin div{flex:1;border-top:1px solid #1b2424;text-align:center;padding-top:4px;font-size:11px}
+.economia{margin:12px 0 0 auto;width:fit-content;padding:8px 14px;border-radius:10px;background:#e7f8ee;color:#12643a;border:1px solid #9ad8b5;font-size:12.5px}
 .peq{font-size:10.5px;color:#4a5856}.rod{margin-top:18px;text-align:center;font-size:10px;color:#7a8785}
 </style></head><body>
 <div class="top"><img src="${LOGO}" alt=""><div class="emp"><strong>${esc(CONFIG.NOME_OFICINA)}</strong><br>${emp}</div></div>
@@ -966,8 +978,9 @@ ${os.defeito_relatado || os.diagnostico ? `<div class="caixa"><h2>Atendimento</h
 ${itens.length ? itens.map((i) => `<tr><td>${i.tipo === "servico" ? "Serviço" : "Peça"}</td><td>${esc(i.descricao)}</td><td class="d">${n(i.quantidade)}</td><td class="d">${brl(i.valor_unitario)}</td><td class="d">${brl(i.quantidade * i.valor_unitario)}</td></tr>`).join("") : '<tr><td colspan="5">Nenhum item lançado.</td></tr>'}
 </tbody></table>
 <div class="tot"><div><span>Serviços</span><span>${brl(serv)}</span></div><div><span>Peças</span><span>${brl(peca)}</span></div>
-${os.desconto ? `<div><span>Desconto</span><span>- ${brl(os.desconto)}</span></div>` : ""}<div class="g"><span>TOTAL</span><span>${brl(total)}</span></div>
+${os.desconto ? `<div><span>Desconto${os.desconto_motivo ? " (" + esc(os.desconto_motivo) + ")" : ""}</span><span>- ${brl(os.desconto)}</span></div>` : ""}<div class="g"><span>TOTAL</span><span>${brl(total)}</span></div>
 ${os.pago > 0 ? `<div><span>Pago</span><span>${brl(os.pago)}</span></div><div><span>Saldo</span><span>${brl(total - os.pago)}</span></div>` : ""}</div>
+${Number(os.desconto) > 0 ? `<div class="economia">🎉 Você economizou <b>${brl(os.desconto)}</b>${os.desconto_motivo ? " — " + esc(os.desconto_motivo) : ""}!</div>` : ""}
 ${gar.length ? `<div class="caixa" style="margin-top:14px"><h2>Garantia</h2><div class="peq">${gar.join("<br>")}</div></div>` : ""}
 ${(chk.itens || []).length || chk.combustivel ? `<div class="caixa"><h2>Checklist de entrada</h2><div class="peq">${(chk.itens || []).map(esc).join(" • ")}${chk.combustivel ? `<br>Combustível: ${esc(chk.combustivel)}` : ""}</div></div>` : ""}
 ${os.observacoes ? `<div class="caixa"><h2>Observações</h2><div class="peq">${esc(os.observacoes)}</div></div>` : ""}
@@ -993,7 +1006,7 @@ function msgWhats(d) {
     m += `Segue o orçamento nº ${os.numero} do seu ${veic}:\n\n`;
     if (lista("servico")) m += `*Serviços*\n${lista("servico")}\n\n`;
     if (lista("peca")) m += `*Peças*\n${lista("peca")}\n\n`;
-    if (os.desconto) m += `Desconto: ${brl(os.desconto)}\n`;
+    if (os.desconto) m += `Desconto${os.desconto_motivo ? " (" + os.desconto_motivo + ")" : ""}: ${brl(os.desconto)}\n🎉 Você economiza *${brl(os.desconto)}*!\n`;
     m += `*Total: ${brl(total)}*\n`;
     if (os.validade_orcamento) m += `Válido até ${dataBR(os.validade_orcamento)}.\n`;
     m += "\nPara aprovar, é só responder esta mensagem. 👍";
@@ -1023,8 +1036,8 @@ const nBR = (x) => Number(x ?? 0).toLocaleString("pt-BR", { maximumFractionDigit
 const CAMPOS_PRODUTO = [
   { k: "codigo", t: "Código / SKU" }, { k: "nome", t: "Nome da peça", req: true },
   { k: "categoria", t: "Categoria" }, { k: "unidade", t: "Unidade", tipo: "select", opcoes: UNIDADES },
-  { k: "qtd_minima", t: "Estoque mínimo (gera alerta)", tipo: "number" }, { k: "custo", t: "Preço de custo (R$)", tipo: "number" },
-  { k: "preco_venda", t: "Preço de venda (R$)", tipo: "number" }, { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
+  { k: "qtd_minima", t: "Estoque mínimo (gera alerta)", tipo: "number" }, { k: "custo", t: "Preço de custo (R$)", tipo: "number" }, { k: "margem_percentual", t: "Margem de lucro sobre o custo (%)", tipo: "number" },
+  { k: "preco_venda", t: "Preço de venda (R$)", tipo: "number" }, { k: "margem_auto", t: "Reajustar o preço quando o custo mudar?", tipo: "select", opcoes: [["false", "Não"], ["true", "Sim, manter a margem"]] }, { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
   { k: "garantia_dias", t: "Garantia da peça (dias)", tipo: "number" }, { k: "garantia_km", t: "Garantia da peça (km)", tipo: "number" },
 ];
 
@@ -1043,7 +1056,7 @@ const estoquePecas = {
     el.innerHTML = `<div class="kpis" id="kp"></div>
       <div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar por nome, código ou categoria…">${editar ? '<button class="btn" id="novo" type="button">+ Nova peça</button>' : ""}</div>
       <div class="chips">${[["todos", "Ativas"], ["baixo", "Estoque baixo"], ["inativos", "Inativas"]].map(([k, t]) => `<button class="chip ${k === filtro ? "ativo" : ""}" data-f="${k}" type="button">${t}</button>`).join("")}</div>
-      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Código</th><th>Peça</th><th>Estoque</th><th>Mínimo</th><th>Custo</th><th>Venda</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
+      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Código</th><th>Peça</th><th>Estoque</th><th>Mínimo</th><th>Custo</th><th>Venda</th><th>Margem</th></tr></thead><tbody id="corpo"></tbody></table></div>`;
     const corpo = el.querySelector("#corpo");
 
     const desenhar = () => {
@@ -1059,8 +1072,8 @@ const estoquePecas = {
       corpo.innerHTML = vis.length ? vis.map((p) => `<tr class="${editar ? "clicavel" : ""}" data-id="${p.id}"><td>${esc(p.codigo || "")}</td>
         <td><strong>${esc(p.nome)}</strong><br><span class="suave">${esc(p.categoria || "")}</span></td>
         <td>${nBR(p.qtd_estoque)} ${esc(p.unidade)} ${baixo(p) ? '<span class="badge" style="--cor:#ff6b5e">Baixo</span>' : ""}</td>
-        <td>${nBR(p.qtd_minima)}</td><td>${brl(p.custo)}</td><td>${brl(p.preco_venda)}</td></tr>`).join("")
-        : '<tr><td colspan="6" class="suave centro">Nenhuma peça por aqui.</td></tr>';
+        <td>${nBR(p.qtd_minima)}</td><td>${brl(p.custo)}</td><td>${brl(p.preco_venda)}</td><td>${Number(p.custo) > 0 ? `<span style="color:${p.preco_venda >= p.custo ? "var(--ok)" : "var(--erro)"}">${nBR((p.preco_venda / p.custo - 1) * 100)}%</span>` : "—"}</td></tr>`).join("")
+        : '<tr><td colspan="7" class="suave centro">Nenhuma peça por aqui.</td></tr>';
     };
 
     const abrir = async (p) => {
@@ -1080,6 +1093,7 @@ const estoquePecas = {
           <h4>Últimas movimentações</h4><div id="hist"></div><h4>Histórico de compras</h4><div id="hist-compras"></div>`}`);
       const $ = (s) => m.querySelector(s);
       $("#cancelar").onclick = m.fechar;
+      ligarMargem(m, p);
       const mostrarAtual = () => { if ($("#estq-atual")) $("#estq-atual").textContent = `${nBR(cur.qtd_estoque)} ${cur.unidade}`; };
       mostrarAtual();
 
@@ -1089,6 +1103,7 @@ const estoquePecas = {
         const ini = dados.qtd_ini; delete dados.qtd_ini;
         dados.ativo = dados.ativo !== "false"; dados.unidade = dados.unidade || "un";
         ["qtd_minima", "custo", "preco_venda"].forEach((k) => (dados[k] = dados[k] ?? 0));
+        dados.margem_auto = dados.margem_auto === "true";
         const btn = $("#salvar"); btn.disabled = true;
         try {
           if (novo) {
@@ -1935,8 +1950,10 @@ MODULOS.pacotes = {
     try { await carregar(); } catch (e) { el.innerHTML = `<div class="aviso erro">Não consegui abrir os pacotes. Se for a primeira vez, rode o arquivo <b>09_dia_a_dia.sql</b> no Supabase e recarregue.<br><span class="suave">${esc(e.message || e)}</span></div>`; return; }
     const nomeItem = (i) => i.tipo === "servico" ? (servicos.find((x) => x.id === i.servico_id) || {}).nome : (produtos.find((x) => x.id === i.produto_id) || {}).nome;
     const preco = (i) => Number(i.tipo === "servico" ? (servicos.find((x) => x.id === i.servico_id) || {}).preco_padrao : (produtos.find((x) => x.id === i.produto_id) || {}).preco_venda) || 0;
+    const calcPct = (p) => { const sub = (p.pacote_itens || []).reduce((s, i) => s + i.quantidade * preco(i), 0);
+      let d = p.desconto_tipo === "percentual" ? sub * Number(p.desconto_valor || 0) / 100 : Number(p.desconto_valor || 0); d = Math.min(Math.max(d, 0), sub); return { sub, desc: d, total: sub - d }; };
     el.innerHTML = `<div class="barra-ferr"><input id="busca" type="search" placeholder="Buscar pacote…">${editar ? '<button class="btn" id="novo" type="button">+ Novo pacote</button>' : ""}</div>
-      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Pacote</th><th>O que inclui</th><th>Valor estimado</th><th>Situação</th></tr></thead><tbody id="corpo"></tbody></table></div>
+      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Pacote</th><th>O que inclui</th><th>Valor normal</th><th>Valor do pacote</th><th>Situação</th></tr></thead><tbody id="corpo"></tbody></table></div>
       <p class="suave" style="margin-top:10px">Use o botão <b>+ Pacote</b> dentro da OS: todos os itens entram de uma vez, com o preço e a garantia do cadastro, e você ainda pode ajustar.</p>`;
     const corpo = el.querySelector("#corpo");
     const desenhar = () => {
@@ -1945,8 +1962,8 @@ MODULOS.pacotes = {
       corpo.innerHTML = vis.length ? vis.map((p) => { const it = p.pacote_itens || [];
         return `<tr class="${editar ? "clicavel" : ""}" data-id="${p.id}"><td><b>${esc(p.nome)}</b>${p.descricao ? `<br><span class="suave">${esc(p.descricao)}</span>` : ""}</td>
           <td>${it.length} item(ns)<br><span class="suave">${esc(it.slice(0, 3).map(nomeItem).filter(Boolean).join(", "))}${it.length > 3 ? "…" : ""}</span></td>
-          <td><b>${brl(it.reduce((s, i) => s + i.quantidade * preco(i), 0))}</b></td><td>${p.ativo ? badgeCor("Ativo", "#46d39a") : badgeCor("Inativo", "#9db0ac")}</td></tr>`; }).join("")
-        : '<tr><td colspan="4" class="suave centro">Nenhum pacote ainda. Crie o primeiro, por exemplo "Revisão 10 mil km".</td></tr>';
+          ${(() => { const c = calcPct(p); return `<td>${brl(c.sub)}</td><td><b>${brl(c.total)}</b>${c.desc > 0 ? `<br><span style="color:var(--ok);font-size:.85rem">economia de ${brl(c.desc)}</span>` : ""}</td>`; })()}<td>${p.ativo ? badgeCor("Ativo", "#46d39a") : badgeCor("Inativo", "#9db0ac")}</td></tr>`; }).join("")
+        : '<tr><td colspan="5" class="suave centro">Nenhum pacote ainda. Crie o primeiro, por exemplo "Revisão 10 mil km".</td></tr>';
     };
     const abrir = (pc) => {
       const itens = (pc?.pacote_itens || []).map((i) => ({ ...i })), antigos = itens.map((i) => i.id);
@@ -1956,10 +1973,20 @@ MODULOS.pacotes = {
         <div class="campo"><label for="pc_ativo">Situação</label><select id="pc_ativo"><option value="true" ${pc && !pc.ativo ? "" : "selected"}>Ativo</option><option value="false" ${pc && !pc.ativo ? "selected" : ""}>Inativo</option></select></div></div>
         <h4>Itens do pacote</h4><div class="tabela-wrap"><table class="tabela itens itens-compra"><thead><tr><th>Tipo</th><th>Item</th><th>Qtd</th><th>Valor est.</th><th></th></tr></thead><tbody id="pc_itens"></tbody></table></div>
         <div class="acoes-item"><button class="btn btn-sec" id="pc_srv" type="button">+ Serviço</button><button class="btn btn-sec" id="pc_prd" type="button">+ Peça</button></div>
-        <div class="totais"><div class="geral"><span>Valor estimado</span><span id="pc_total"></span></div></div>
+        <h4>Desconto do pacote</h4><div class="grade-form">
+          <div class="campo"><label for="pc_dtipo">Tipo de desconto</label><select id="pc_dtipo"><option value="percentual" ${(pc?.desconto_tipo || "percentual") === "percentual" ? "selected" : ""}>Porcentagem (%)</option><option value="valor" ${pc?.desconto_tipo === "valor" ? "selected" : ""}>Valor em reais (R$)</option></select></div>
+          <div class="campo"><label for="pc_dval">Desconto</label><input id="pc_dval" type="number" step="0.01" min="0" value="${pc?.desconto_valor ?? 0}"></div></div>
+        <div class="totais"><div><span>Valor normal</span><span id="pc_sub"></span></div><div><span>Desconto</span><span id="pc_desc_v"></span></div>
+          <div class="geral"><span>Valor do pacote</span><span id="pc_total"></span></div><div id="pc_econ" style="color:var(--ok);font-weight:700;text-align:right"></div></div>
         <div class="acoes">${pc ? '<button class="btn btn-perigo" id="pc_del" type="button">Excluir</button>' : ""}<span style="flex:1"></span><button class="btn btn-sec" id="pc_x" type="button">Cancelar</button><button class="btn" id="pc_ok" type="button">Salvar</button></div>`, true);
       const $ = (s) => m.querySelector(s);
-      const total = () => { $("#pc_total").textContent = brl(itens.reduce((s, i) => s + Number(i.quantidade || 0) * preco(i), 0)); m.querySelectorAll("#pc_itens tr[data-i] .tot").forEach((td) => { const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * preco(i)); }); };
+      const total = () => {
+        const sub = itens.reduce((s, i) => s + Number(i.quantidade || 0) * preco(i), 0), val = Number($("#pc_dval").value) || 0;
+        let d = $("#pc_dtipo").value === "percentual" ? sub * val / 100 : val; d = Math.min(Math.max(d, 0), sub);
+        $("#pc_sub").textContent = brl(sub); $("#pc_desc_v").textContent = "- " + brl(d); $("#pc_total").textContent = brl(sub - d);
+        $("#pc_econ").textContent = d > 0 ? `O cliente economiza ${brl(d)}${sub > 0 ? " (" + nBR(d / sub * 100) + "%)" : ""}` : "";
+        m.querySelectorAll("#pc_itens tr[data-i] .tot").forEach((td) => { const i = itens[td.parentNode.dataset.i]; td.textContent = brl(i.quantidade * preco(i)); });
+      };
       const linhasItens = () => {
         $("#pc_itens").innerHTML = itens.length ? itens.map((it, i) => `<tr data-i="${i}"><td>${it.tipo === "servico" ? "Serviço" : "Peça"}</td>
           <td><select data-c="pick" data-busca data-titulo="${it.tipo === "servico" ? "Buscar serviço" : "Buscar peça"}"><option value="">— Escolha —</option>${it.tipo === "servico"
@@ -1974,13 +2001,14 @@ MODULOS.pacotes = {
       $("#pc_itens").addEventListener("input", (e) => { if (e.target.dataset.c !== "quantidade") return; itens[e.target.closest("tr").dataset.i].quantidade = Number(e.target.value) || 0; total(); });
       $("#pc_itens").addEventListener("change", (e) => { if (e.target.dataset.c !== "pick") return; const it = itens[e.target.closest("tr").dataset.i]; it[it.tipo === "servico" ? "servico_id" : "produto_id"] = e.target.value; total(); });
       $("#pc_itens").addEventListener("click", (e) => { if (e.target.dataset.c === "rem") { itens.splice(e.target.closest("tr").dataset.i, 1); linhasItens(); } });
-      $("#pc_x").onclick = m.fechar; linhasItens();
+      $("#pc_x").onclick = m.fechar; ["#pc_dtipo", "#pc_dval"].forEach((s) => { $(s).addEventListener("input", total); $(s).addEventListener("change", total); }); linhasItens();
       $("#pc_ok").onclick = async () => {
         const nome = $("#pc_nome").value.trim();
         if (!nome) { toast("Dê um nome ao pacote.", "erro"); return; }
         if (!itens.length) { toast("Adicione pelo menos um item.", "erro"); return; }
         if (itens.some((i) => !(i.tipo === "servico" ? i.servico_id : i.produto_id) || !(Number(i.quantidade) > 0))) { toast("Escolha o item e a quantidade em todas as linhas.", "erro"); return; }
-        const dados = { nome, descricao: $("#pc_desc").value.trim() || null, ativo: $("#pc_ativo").value === "true" };
+        const dados = { nome, descricao: $("#pc_desc").value.trim() || null, ativo: $("#pc_ativo").value === "true", desconto_tipo: $("#pc_dtipo").value, desconto_valor: Number($("#pc_dval").value) || 0 };
+        if (dados.desconto_tipo === "percentual" && dados.desconto_valor > 100) { toast("O desconto não pode passar de 100%.", "erro"); return; }
         $("#pc_ok").disabled = true; let id = pc?.id, criou = false;
         try {
           if (!pc) { const r = await sb.from("pacotes").insert(dados).select("id").single(); if (r.error) throw r.error; id = r.data.id; criou = true; }
@@ -2141,6 +2169,36 @@ MODULOS.agenda = {
     desenhar();
   },
 };
+
+// ===================== DESCONTO DE PACOTE E MARGEM DE LUCRO =====================
+// Desconto que o pacote dá sobre os itens (já com os preços atuais do cadastro).
+function descontoPacote(pc, itens) {
+  const sub = itens.reduce((s, i) => s + i.quantidade * i.valor_unitario, 0);
+  let d = pc.desconto_tipo === "percentual" ? sub * Number(pc.desconto_valor || 0) / 100 : Number(pc.desconto_valor || 0);
+  d = Math.round(Math.min(Math.max(d, 0), sub) * 100) / 100;
+  return { sub, desc: d, total: sub - d };
+}
+
+// Cadastro da peça: custo + margem % = preço de venda (e o contrário).
+function ligarMargem(m, p) {
+  const custo = m.querySelector("#f_custo"), marg = m.querySelector("#f_margem_percentual"), venda = m.querySelector("#f_preco_venda");
+  if (!custo || !marg || !venda) return;
+  const dica = document.createElement("small"); dica.className = "suave"; venda.closest(".campo").appendChild(dica);
+  const num = (e) => Number(e.value) || 0, arred = (x) => Math.round(x * 100) / 100;
+  let guia = p && p.margem_percentual != null ? "margem" : "venda";
+  const mostrar = () => {
+    const c = num(custo), v = num(venda);
+    dica.textContent = c > 0 && v > 0 ? `Lucro: ${brl(v - c)} por unidade · ${nBR((v / c - 1) * 100)}% sobre o custo · ${nBR((1 - c / v) * 100)}% do preço de venda`
+      : c > 0 ? "" : "Informe o preço de custo para calcular a margem.";
+  };
+  const daMargem = () => { if (num(custo) > 0 && marg.value !== "") venda.value = arred(num(custo) * (1 + num(marg) / 100)); mostrar(); };
+  const daVenda = () => { if (num(custo) > 0 && venda.value !== "") marg.value = arred((num(venda) / num(custo) - 1) * 100); mostrar(); };
+  marg.addEventListener("input", () => { guia = "margem"; daMargem(); });
+  venda.addEventListener("input", () => { guia = "venda"; daVenda(); });
+  custo.addEventListener("input", () => (guia === "margem" ? daMargem() : daVenda()));
+  if (marg.value === "" && num(custo) > 0 && num(venda) > 0) marg.value = arred((num(venda) / num(custo) - 1) * 100);
+  mostrar();
+}
 
 // Telas do menu lateral: Estoque > Peças / Compras e Financeiro > Resumo / A receber / Recebimentos / Despesas
 MODULOS.pecas = estoquePecas;
@@ -2354,7 +2412,7 @@ MODULOS.equipe = {
 };
 
 // Núcleo do sistema: login obrigatório, menu por perfil e navegação entre telas
-const VERSAO_SISTEMA = "2026.11.10-d";
+const VERSAO_SISTEMA = "2026.11.11-e";
 const TODOS = ["dono", "atendente", "mecanico", "contador"];
 // Itens com "filhos" viram grupos que abrem e fecham no menu lateral.
 const MENU = [
