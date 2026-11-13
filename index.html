@@ -216,6 +216,9 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .ag-hora{display:flex;flex-direction:column;line-height:1.25}.ag-hora b{font-size:1.25rem}.ag-hora small{color:var(--suave)}
 .ag-acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}.ag-acoes .mini{margin:0}
 @media(max-width:860px){.ag-card{grid-template-columns:62px 1fr}.ag-acoes{grid-column:1/-1;justify-content:flex-start}.semana{gap:4px}.dia-bt{padding:8px 2px}}
+.linha-preco{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.dica-lucro{grid-column:1/-1;margin:-4px 0 12px;color:var(--ok);font-weight:600}
+@media(max-width:860px){.linha-preco{gap:8px}}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -1036,8 +1039,8 @@ const nBR = (x) => Number(x ?? 0).toLocaleString("pt-BR", { maximumFractionDigit
 const CAMPOS_PRODUTO = [
   { k: "codigo", t: "Código / SKU" }, { k: "nome", t: "Nome da peça", req: true },
   { k: "categoria", t: "Categoria" }, { k: "unidade", t: "Unidade", tipo: "select", opcoes: UNIDADES },
-  { k: "qtd_minima", t: "Estoque mínimo (gera alerta)", tipo: "number" }, { k: "custo", t: "Preço de custo (R$)", tipo: "number" }, { k: "margem_percentual", t: "Margem de lucro sobre o custo (%)", tipo: "number" },
-  { k: "preco_venda", t: "Preço de venda (R$)", tipo: "number" }, { k: "margem_auto", t: "Reajustar o preço quando o custo mudar?", tipo: "select", opcoes: [["false", "Não"], ["true", "Sim, manter a margem"]] }, { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
+  { k: "qtd_minima", t: "Estoque mínimo (gera alerta)", tipo: "number" }, { k: "custo", t: "Custo (R$)", tipo: "number" }, { k: "margem_percentual", t: "Margem (%)", tipo: "number" },
+  { k: "preco_venda", t: "Venda (R$)", tipo: "number" }, { k: "margem_auto", t: "Atualizar o preço quando o custo mudar?", tipo: "select", opcoes: [["false", "Não"], ["true", "Sim, manter a margem"]] }, { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
   { k: "garantia_dias", t: "Garantia da peça (dias)", tipo: "number" }, { k: "garantia_km", t: "Garantia da peça (km)", tipo: "number" },
 ];
 
@@ -2183,13 +2186,16 @@ function descontoPacote(pc, itens) {
 function ligarMargem(m, p) {
   const custo = m.querySelector("#f_custo"), marg = m.querySelector("#f_margem_percentual"), venda = m.querySelector("#f_preco_venda");
   if (!custo || !marg || !venda) return;
-  const dica = document.createElement("small"); dica.className = "suave"; venda.closest(".campo").appendChild(dica);
+  const campoC = custo.closest(".campo"), campoM = marg.closest(".campo"), campoV = venda.closest(".campo");
+  const grupo = document.createElement("div"); grupo.className = "linha-preco"; campoC.before(grupo); grupo.append(campoC, campoM, campoV);
+  const dica = document.createElement("small"); dica.className = "dica-lucro"; grupo.after(dica);
   const num = (e) => Number(e.value) || 0, arred = (x) => Math.round(x * 100) / 100;
   let guia = p && p.margem_percentual != null ? "margem" : "venda";
   const mostrar = () => {
     const c = num(custo), v = num(venda);
-    dica.textContent = c > 0 && v > 0 ? `Lucro: ${brl(v - c)} por unidade · ${nBR((v / c - 1) * 100)}% sobre o custo · ${nBR((1 - c / v) * 100)}% do preço de venda`
-      : c > 0 ? "" : "Informe o preço de custo para calcular a margem.";
+    dica.style.color = c > 0 && v > 0 && v < c ? "var(--erro)" : "";
+    dica.textContent = c <= 0 ? "Informe o custo para calcular o preço." : v <= 0 ? ""
+      : v < c ? `Atenção: venda abaixo do custo (prejuízo de ${brl(c - v)} por unidade).` : `Lucro de ${brl(v - c)} por unidade.`;
   };
   const daMargem = () => { if (num(custo) > 0 && marg.value !== "") venda.value = arred(num(custo) * (1 + num(marg) / 100)); mostrar(); };
   const daVenda = () => { if (num(custo) > 0 && venda.value !== "") marg.value = arred((num(venda) / num(custo) - 1) * 100); mostrar(); };
@@ -2412,7 +2418,7 @@ MODULOS.equipe = {
 };
 
 // Núcleo do sistema: login obrigatório, menu por perfil e navegação entre telas
-const VERSAO_SISTEMA = "2026.11.11-e";
+const VERSAO_SISTEMA = "2026.11.12-f";
 const TODOS = ["dono", "atendente", "mecanico", "contador"];
 // Itens com "filhos" viram grupos que abrem e fecham no menu lateral.
 const MENU = [
