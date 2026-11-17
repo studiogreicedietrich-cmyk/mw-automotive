@@ -219,6 +219,12 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .linha-preco{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .dica-lucro{grid-column:1/-1;margin:-4px 0 12px;color:var(--ok);font-weight:600}
 @media(max-width:860px){.linha-preco{gap:8px}}
+.modal-fundo>.modal{min-width:0}
+.abas-modal{max-width:100%;display:flex;gap:2px;border-bottom:1px solid var(--borda);margin:12px 0 18px;overflow-x:auto;scrollbar-width:none}
+.abas-modal::-webkit-scrollbar{display:none}
+.aba-bt{padding:11px 14px;border:0;border-bottom:3px solid transparent;background:none;color:var(--suave);font:inherit;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+.aba-bt:hover{color:var(--texto);background:rgba(255,255,255,.04)}
+.aba-bt.ativa{color:var(--amarelo);border-bottom-color:var(--amarelo);background:rgba(252,211,74,.07)}
 @keyframes flutuar{50%{transform:translateY(-8px)}}
 @keyframes girar{to{transform:rotate(360deg)}}
 @keyframes deriva{to{transform:translate(60px,40px) scale(1.15)}}
@@ -600,7 +606,7 @@ MODULOS.clientes = crud({
 });
 
 MODULOS.veiculos = crud({
-  aoAbrir: (m, reg) => { const d = document.createElement("div"); d.innerHTML = '<h4>Histórico do veículo</h4><div id="ficha"></div>'; m.querySelector(".modal-corpo").appendChild(d); renderFicha(d.querySelector("#ficha"), reg.id); },
+  aoAbrir: (m, reg) => { const d = abaExtra(m, "Histórico"); d.innerHTML = '<div id="ficha"></div>'; renderFicha(d.querySelector("#ficha"), reg.id); },
   tabela: "veiculos", titulo: "Veículos", singular: "veículo", ordem: "placa", select: "*, clientes(nome)",
   carregar: async () => ({ clientes: (await sb.from("clientes").select("id,nome").order("nome")).data || [] }),
   colunas: [{ k: "placa", t: "Placa", f: (l) => `<strong>${esc(l.placa)}</strong>` },
@@ -684,7 +690,7 @@ MODULOS.os = {
       const opsVeic = (cid) => veiculos.filter((v) => v.cliente_id === cid).map((v) => [v.id, `${v.placa} · ${[v.marca, v.modelo].filter(Boolean).join(" ")}`]);
 
       const m = modal(os ? `Ordem de serviço #${o.numero}` : "Nova ordem de serviço", `
-        <div class="grade-form">
+        <div data-aba="atend"><div class="grade-form">
           <div class="campo"><label>Cliente *</label><select id="f_cliente" data-busca>${opt(clientes.map((c) => [c.id, c.nome]), o.cliente_id, "Selecione…")}</select></div>
           <div class="campo"><label>Veículo *</label><select id="f_veiculo" data-busca>${opt(opsVeic(o.cliente_id), o.veiculo_id, "Selecione o cliente primeiro")}</select></div>
           <div class="campo"><label>Mecânico</label><select id="f_mecanico">${opt(mecs.map((x) => [x.id, x.nome]), o.mecanico_id, "Sem mecânico")}</select></div>
@@ -694,12 +700,13 @@ MODULOS.os = {
           <div class="campo larga"><label>Defeito relatado pelo cliente</label><textarea id="f_defeito" rows="2">${esc(o.defeito_relatado)}</textarea></div>
           <div class="campo larga"><label>Diagnóstico do mecânico</label><textarea id="f_diag" rows="2">${esc(o.diagnostico)}</textarea></div>
         </div>
-        <div id="aviso-garantia"></div>
-        <h4>Checklist de entrada</h4>
+        <div id="aviso-garantia"></div></div>
+        <div data-aba="check"><h4>Checklist de entrada</h4>
         <div class="checks">${CHECK_ENTRADA.map((t) => `<label><input type="checkbox" value="${esc(t)}" ${(chk.itens || []).includes(t) ? "checked" : ""}>${t}</label>`).join("")}</div>
         <div class="campo" style="max-width:240px"><label>Combustível</label><select id="f_comb">${opt([["reserva", "Reserva"], ["1/4", "1/4"], ["1/2", "1/2"], ["3/4", "3/4"], ["cheio", "Cheio"]], chk.combustivel, "Não informado")}</select></div>
         <h4>Fotos do veículo</h4><div id="fotos-os">${os ? "" : '<p class="suave">Salve a OS primeiro: em seguida ela reabre e você já pode tirar as fotos de entrada.</p>'}</div>
-        <h4>Serviços e peças</h4>
+        </div>
+        <div data-aba="itens">
         <div class="tabela-wrap"><table class="tabela itens"><thead><tr><th>Tipo</th><th>Do catálogo</th><th>Descrição</th><th>Qtd</th><th>Valor un.</th><th>Garantia</th><th>Total</th><th></th></tr></thead><tbody id="itens"></tbody></table></div>
         <div class="acoes-item"><button class="btn btn-sec" id="add-srv" type="button">+ Serviço</button><button class="btn btn-sec" id="add-prd" type="button">+ Peça</button><button class="btn btn-sec" id="add-pct" type="button">+ Pacote</button></div>
         <div class="grade-form"><div class="campo larga"><label>Observações</label><textarea id="f_obs" rows="2">${esc(o.observacoes)}</textarea></div>
@@ -707,11 +714,13 @@ MODULOS.os = {
           <div class="campo"><label>Motivo do desconto (aparece para o cliente)</label><input id="f_desc_motivo" placeholder="ex.: Pacote Troca de óleo" value="${esc(o.desconto_motivo)}"></div></div>
         <div class="totais"><div><span>Subtotal</span><span id="t-sub"></span></div><div class="geral"><span>Total</span><span id="t-total"></span></div>
           ${os ? `<div><span>Pago</span><span id="t-pago">${brl(o.pago)}</span></div><div><span>Saldo</span><span id="t-saldo"></span></div>` : ""}</div>
+        </div>
         <div class="acoes">${os && papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir OS</button>' : ""}<span style="flex:1"></span>
           ${os && editaTudo ? '<button class="btn btn-sec" id="receber-btn" type="button">Receber</button>' : ""}
           ${os ? '<button class="btn btn-sec" id="imprimir" type="button">PDF / Imprimir</button><button class="btn btn-whats" id="whats" type="button">WhatsApp</button>' : ""}
           <button class="btn btn-sec" id="cancelar" type="button">Fechar</button><button class="btn" id="salvar" type="button">Salvar OS</button></div>`, true);
 
+      abasNoModal(m, [["atend", "Atendimento"], ["check", "Checklist e fotos"], ["itens", "Serviços e peças"]]);
       const $ = (s) => m.querySelector(s);
       const pick = (it) => `<option value="">— Avulso —</option>` + (it.tipo === "servico"
         ? servicos.map((s) => `<option value="s:${s.id}" ${it.servico_id === s.id ? "selected" : ""}data-sub="${brl(s.preco_padrao)}">${esc(s.nome)}</option>`).join("")
@@ -738,6 +747,7 @@ MODULOS.os = {
           <td class="tot"></td><td><button class="x-linha" data-c="rem" type="button" aria-label="Remover">×</button></td></tr>`).join("")
           : '<tr><td colspan="8" class="suave centro">Nenhum item ainda. Use os botões abaixo.</td></tr>';
         ativarBuscas($("#itens"));
+        { const bt = m.querySelector('[data-ab="itens"]'); if (bt) bt.textContent = itens.length ? `Serviços e peças (${itens.length})` : "Serviços e peças"; }
         calc();
       };
       const novoItem = (tipo) => { itens.push({ tipo, produto_id: null, servico_id: null, descricao: "", quantidade: 1, valor_unitario: 0, garantia_dias: null, garantia_km: null }); linhasItens(); };
@@ -902,8 +912,8 @@ MODULOS.os = {
           km_entrada: $("#f_km").value === "" ? null : Number($("#f_km").value), validade_orcamento: $("#f_validade").value || null,
           defeito_relatado: $("#f_defeito").value.trim() || null, desconto: Number($("#f_desc").value || 0), observacoes: $("#f_obs").value.trim() || null });
         if (editaTudo) { const dm = $("#f_desc_motivo").value.trim(); if (dm) dados.desconto_motivo = dm; else if (o.desconto_motivo) dados.desconto_motivo = null; }
-        if (editaTudo && (!dados.cliente_id || !dados.veiculo_id)) { toast("Escolha o cliente e o veículo.", "erro"); return; }
-        if (itens.some((i) => !i.descricao.trim() || !(i.quantidade > 0))) { toast("Todo item precisa de descrição e quantidade.", "erro"); return; }
+        if (editaTudo && (!dados.cliente_id || !dados.veiculo_id)) { m.mostrarAba("atend"); toast("Escolha o cliente e o veículo.", "erro"); return; }
+        if (itens.some((i) => !i.descricao.trim() || !(i.quantidade > 0))) { m.mostrarAba("itens"); toast("Todo item precisa de descrição e quantidade.", "erro"); return; }
         const btn = $("#salvar"); btn.disabled = true; const antes = o.status;
         try {
           let osId = o.id;
@@ -1083,17 +1093,21 @@ const estoquePecas = {
       const novo = !p; let cur = p;
       const m = modal(novo ? "Nova peça" : p.nome, `
         ${novo ? "" : '<div class="estq-topo"><span class="suave">Em estoque agora</span><strong id="estq-atual"></strong></div>'}
-        <div class="grade-form">${CAMPOS_PRODUTO.map((c) => campoHtml(c, novo ? { unidade: "un", ativo: true }[c.k] : p[c.k])).join("")}
-          ${novo ? campoHtml({ k: "qtd_ini", t: "Quantidade inicial em estoque", tipo: "number" }, "") : ""}</div>
-        <div class="acoes">${!novo && papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir</button>' : ""}<span style="flex:1"></span>
-          <button class="btn btn-sec" id="cancelar" type="button">Fechar</button><button class="btn" id="salvar" type="button">Salvar</button></div>
-        ${novo ? "" : `<h4>Movimentar estoque</h4>
-          <div class="grade-form">
-            <div class="campo"><label>Tipo</label><select id="mv_tipo"><option value="entrada">Entrada (compra / reposição)</option><option value="saida">Saída manual (perda / uso interno)</option><option value="ajuste">Ajuste de inventário (contagem)</option></select></div>
-            <div class="campo"><label id="mv_rot">Quantidade</label><input id="mv_qtd" type="number" min="0"></div>
-            <div class="campo larga"><label>Motivo / observação</label><input id="mv_mot" placeholder="Ex.: compra na loja X, nota 1234"></div></div>
-          <div class="acoes"><button class="btn" id="mv_ok" type="button">Registrar movimentação</button></div>
-          <h4>Últimas movimentações</h4><div id="hist"></div><h4>Histórico de compras</h4><div id="hist-compras"></div>`}`);
+        <div data-aba="dados">
+          <div class="grade-form">${CAMPOS_PRODUTO.map((c) => campoHtml(c, novo ? { unidade: "un", ativo: true }[c.k] : p[c.k])).join("")}
+            ${novo ? campoHtml({ k: "qtd_ini", t: "Quantidade inicial em estoque", tipo: "number" }, "") : ""}</div>
+          <div class="acoes">${!novo && papel === "dono" ? '<button class="btn btn-perigo" id="apagar" type="button">Excluir</button>' : ""}<span style="flex:1"></span>
+            <button class="btn btn-sec" id="cancelar" type="button">Fechar</button><button class="btn" id="salvar" type="button">Salvar</button></div>
+        </div>
+        ${novo ? "" : `<div data-aba="mov">
+            <div class="grade-form">
+              <div class="campo"><label>Tipo</label><select id="mv_tipo"><option value="entrada">Entrada (compra / reposição)</option><option value="saida">Saída manual (perda / uso interno)</option><option value="ajuste">Ajuste de inventário (contagem)</option></select></div>
+              <div class="campo"><label id="mv_rot">Quantidade</label><input id="mv_qtd" type="number" min="0"></div>
+              <div class="campo larga"><label>Motivo / observação</label><input id="mv_mot" placeholder="Ex.: compra na loja X, nota 1234"></div></div>
+            <div class="acoes"><button class="btn" id="mv_ok" type="button">Registrar movimentação</button></div></div>
+          <div data-aba="hist"><div id="hist"></div></div>
+          <div data-aba="compras"><div id="hist-compras"></div></div>`}`);
+      if (!novo) abasNoModal(m, [["dados", "Dados"], ["mov", "Movimentar"], ["hist", "Movimentações"], ["compras", "Compras"]]);
       const $ = (s) => m.querySelector(s);
       $("#cancelar").onclick = m.fechar;
       ligarMargem(m, p);
@@ -1749,7 +1763,7 @@ const comprasUI = {
       const itens = novo ? [{ produto_id: "", novo: false, nome: "", codigo: "", preco_venda: "", quantidade: 1, custo_unitario: 0 }] : [];
       const forn = [...new Set(linhas.map((x) => x.fornecedor))].sort();
       const m = modal(novo ? "Nova compra" : `Compra #${o.numero}${o.status === "cancelada" ? " · cancelada" : ""}`, `
-        <div class="grade-form">
+        <div data-aba="doc"><div class="grade-form">
           <div class="campo"><label for="cp_forn">Fornecedor *</label><select id="cp_forn" data-busca data-titulo="Buscar fornecedor"><option value="">Selecione…</option><option value="novo" ${legado ? "selected" : ""}>➕ Cadastrar fornecedor novo</option>${fornecedores.filter((f) => f.ativo || f.id === o.fornecedor_id).map((f) => `<option value="${f.id}" ${f.id === o.fornecedor_id ? "selected" : ""}>${esc(f.nome)}</option>`).join("")}</select><input id="cp_forn_novo" placeholder="Nome do novo fornecedor" value="${esc(legado ? o.fornecedor : "")}" ${legado ? "" : "hidden"} style="margin-top:6px"></div>
           <div class="campo"><label for="cp_data">Data da compra *</label><input id="cp_data" type="date" value="${o.data_compra || hojeISO()}"></div>
           <div class="campo"><label for="cp_tipo">Documento</label><select id="cp_tipo">${TIPOS_DOC.map(([k, t]) => `<option value="${k}" ${k === (o.documento_tipo || "nota_fiscal") ? "selected" : ""}>${t}</option>`).join("")}</select></div>
@@ -1758,7 +1772,7 @@ const comprasUI = {
           <div class="campo"><label for="cp_forma">Forma de pagamento</label><select id="cp_forma"><option value="">Não informar</option>${Object.entries(FORMAS).map(([k, t]) => `<option value="${k}" ${k === o.forma_pagamento ? "selected" : ""}>${t}</option>`).join("")}</select></div>
           <div class="campo"><label for="cp_arq">Anexo (foto ou PDF da nota)</label><input id="cp_arq" type="file" accept="image/*,application/pdf">${o.arquivo ? '<button class="mini" id="cp_ver" type="button" style="margin:8px 0 0">Ver anexo atual</button>' : ""}</div>
         </div>
-        <h4>Itens comprados</h4>
+        </div><div data-aba="itens">
         ${novo ? `<div class="tabela-wrap"><table class="tabela itens itens-compra"><thead><tr><th>Produto</th><th>Qtd</th><th>Custo un.</th><th>Total</th><th></th></tr></thead><tbody id="cp_itens"></tbody></table></div>
           <div class="acoes-item"><button class="btn btn-sec" id="cp_add" type="button">+ Adicionar item</button></div>`
         : `<div class="tabela-wrap"><table class="tabela" style="min-width:520px"><thead><tr><th>Produto</th><th>Qtd</th><th>Custo un.</th><th>Total</th></tr></thead><tbody>${fixos.map((i) => `<tr><td>${esc(i.descricao)}</td><td>${nBR(i.quantidade)}</td><td>${brl(i.custo_unitario)}</td><td>${brl(i.quantidade * i.custo_unitario)}</td></tr>`).join("")}</tbody></table></div>
@@ -1766,11 +1780,13 @@ const comprasUI = {
         <div class="grade-form" style="margin-top:12px"><div class="campo"><label for="cp_frete">Frete (R$)</label><input id="cp_frete" type="number" step="0.01" min="0" value="${o.frete ?? 0}"></div>
           <div class="campo"><label for="cp_desc">Desconto (R$)</label><input id="cp_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div></div>
         <div class="totais"><div><span>Itens</span><span id="cp_sub"></span></div><div class="geral"><span>Total da compra</span><span id="cp_total"></span></div></div>
-        ${novo && dono ? `<h4>Financeiro</h4><div class="grade-form"><div class="campo"><label for="cp_fin">Lançar como despesa?</label><select id="cp_fin"><option value="nao">Não lançar</option><option value="paga">Sim, já paga</option><option value="pagar">Sim, a pagar</option></select></div>
+        </div><div data-aba="fin">${novo && dono ? `<h4>Financeiro</h4><div class="grade-form"><div class="campo"><label for="cp_fin">Lançar como despesa?</label><select id="cp_fin"><option value="nao">Não lançar</option><option value="paga">Sim, já paga</option><option value="pagar">Sim, a pagar</option></select></div>
           <div class="campo" id="cp_venc_box" hidden><label for="cp_venc">Vencimento</label><input id="cp_venc" type="date"></div></div>` : ""}
         <div class="campo"><label for="cp_obs">Observações</label><textarea id="cp_obs" rows="2">${esc(o.observacoes)}</textarea></div>
+        </div>
         <div class="acoes">${!novo && dono && o.status === "ativa" ? '<button class="btn btn-perigo" id="cp_cancelar" type="button">Cancelar compra</button>' : ""}<span style="flex:1"></span>
           <button class="btn btn-sec" id="cp_fechar" type="button">Fechar</button>${o.status === "cancelada" ? "" : '<button class="btn" id="cp_salvar" type="button">Salvar</button>'}</div>`, true);
+      abasNoModal(m, [["doc", "Documento"], ["itens", "Itens e valores"], ["fin", novo && dono ? "Financeiro e observações" : "Observações"]]);
       const $ = (s) => m.querySelector(s), nn = (s) => $(s).value.trim() || null;
       const calc = () => {
         const base = novo ? itens : fixos, sub = base.reduce((s, i) => s + Number(i.quantidade || 0) * Number(i.custo_unitario || 0), 0);
@@ -1827,19 +1843,19 @@ const comprasUI = {
         const selF = $("#cp_forn").value; let fornecedor = "", fornecedorId = null;
         if (selF === "novo") fornecedor = $("#cp_forn_novo").value.trim();
         else if (selF) { const fo = fornecedores.find((x) => x.id === selF); fornecedor = fo ? fo.nome : ""; fornecedorId = selF; }
-        if (!fornecedor) { toast("Escolha o fornecedor (ou cadastre um novo).", "erro"); return; }
+        if (!fornecedor) { m.mostrarAba("doc"); toast("Escolha o fornecedor (ou cadastre um novo).", "erro"); return; }
         if (novo) {
           if (!itens.length) { toast("Adicione pelo menos um item.", "erro"); return; }
           for (const it of itens) {
-            if (!it.novo && !it.produto_id) { toast("Escolha o produto de cada item (ou cadastre um novo).", "erro"); return; }
-            if (it.novo && !String(it.nome).trim()) { toast("Dê um nome ao produto novo.", "erro"); return; }
+            if (!it.novo && !it.produto_id) { m.mostrarAba("itens"); toast("Escolha o produto de cada item (ou cadastre um novo).", "erro"); return; }
+            if (it.novo && !String(it.nome).trim()) { m.mostrarAba("itens"); toast("Dê um nome ao produto novo.", "erro"); return; }
             if (!(Number(it.quantidade) > 0)) { toast("A quantidade precisa ser maior que zero.", "erro"); return; }
           }
         }
         const cab = { fornecedor, data_compra: $("#cp_data").value || hojeISO(), documento_tipo: $("#cp_tipo").value, documento_numero: nn("#cp_num"),
           chave_acesso: $("#cp_chave").value.replace(/\D/g, "") || null, forma_pagamento: $("#cp_forma").value || null,
           frete: Number($("#cp_frete").value || 0), desconto: Number($("#cp_desc").value || 0), observacoes: nn("#cp_obs") };
-        if (cab.chave_acesso && cab.chave_acesso.length !== 44) { toast("A chave de acesso tem 44 números. Confira ou deixe em branco.", "erro"); return; }
+        if (cab.chave_acesso && cab.chave_acesso.length !== 44) { m.mostrarAba("doc"); toast("A chave de acesso tem 44 números. Confira ou deixe em branco.", "erro"); return; }
         const f = $("#cp_arq").files[0];
         if (f && f.size > 8 * 1024 * 1024) { toast("O anexo passa de 8 MB. Use uma foto menor ou um PDF mais leve.", "erro"); return; }
         salvar.disabled = true;
@@ -2206,6 +2222,31 @@ function ligarMargem(m, p) {
   mostrar();
 }
 
+// ===================== ABAS DENTRO DAS JANELAS =====================
+// Mostra uma barra de abas e esconde as seções [data-aba] que não estão selecionadas.
+function abasNoModal(m, abas) {
+  const corpo = m.querySelector(".modal-corpo"), primeira = corpo.querySelector("[data-aba]");
+  if (!primeira) return () => {};
+  const barra = document.createElement("div"); barra.className = "abas-modal"; barra.setAttribute("role", "tablist");
+  barra.innerHTML = abas.map(([k, t]) => `<button type="button" role="tab" class="aba-bt" data-ab="${k}">${esc(t)}</button>`).join("");
+  primeira.before(barra);
+  const mostrar = (k) => {
+    barra.querySelectorAll(".aba-bt").forEach((b) => { const on = b.dataset.ab === k; b.classList.toggle("ativa", on); b.setAttribute("aria-selected", on); });
+    corpo.querySelectorAll("[data-aba]").forEach((s) => (s.hidden = s.dataset.aba !== k));
+  };
+  barra.onclick = (e) => { const b = e.target.closest(".aba-bt"); if (b) mostrar(b.dataset.ab); };
+  mostrar(abas[0][0]); m.mostrarAba = mostrar;
+  return mostrar;
+}
+// Para janelas que já existem: o conteúdo atual vira a aba "Dados" e devolve a aba extra (vazia) para você preencher.
+function abaExtra(m, rotulo) {
+  const corpo = m.querySelector(".modal-corpo"), dados = document.createElement("div"), extra = document.createElement("div");
+  dados.dataset.aba = "dados"; extra.dataset.aba = "extra";
+  while (corpo.firstChild) dados.appendChild(corpo.firstChild);
+  corpo.append(dados, extra); abasNoModal(m, [["dados", "Dados"], ["extra", rotulo]]);
+  return extra;
+}
+
 // Telas do menu lateral: Estoque > Peças / Compras e Financeiro > Resumo / A receber / Recebimentos / Despesas
 MODULOS.pecas = estoquePecas;
 MODULOS.compras = comprasUI;
@@ -2230,14 +2271,13 @@ MODULOS.fornecedores = crud({
   antes: (d) => { d.ativo = d.ativo !== "false"; },
   // Mostra, dentro do cadastro, o histórico de compras feitas neste fornecedor
   aoAbrir: async (m, reg) => {
-    const alvo = document.createElement("div");
-    alvo.innerHTML = '<h4>Compras deste fornecedor</h4><p class="suave">Carregando…</p>';
-    m.querySelector(".modal-corpo").appendChild(alvo);
+    const alvo = abaExtra(m, "Compras");
+    alvo.innerHTML = '<p class="suave">Carregando…</p>';
     const { data, error } = await sb.from("compras").select("numero,data_compra,documento_tipo,documento_numero,frete,desconto,status,compra_itens(quantidade,custo_unitario)")
       .eq("fornecedor_id", reg.id).order("data_compra", { ascending: false }).limit(20);
-    if (error || !data) { alvo.innerHTML = '<h4>Compras deste fornecedor</h4><p class="suave">Indisponível (rode o 08_fornecedores.sql).</p>'; return; }
+    if (error || !data) { alvo.innerHTML = '<p class="suave">Indisponível (rode o 08_fornecedores.sql).</p>'; return; }
     const tot = (c) => totalCompra(c, c.compra_itens || []), gasto = data.filter((c) => c.status === "ativa").reduce((s, c) => s + tot(c), 0);
-    alvo.innerHTML = `<h4>Compras deste fornecedor</h4>` + (data.length
+    alvo.innerHTML = `` + (data.length
       ? `<p class="suave" style="margin-bottom:8px">${data.filter((c) => c.status === "ativa").length} compra(s) ativa(s) · total gasto <b style="color:var(--amarelo)">${brl(gasto)}</b></p>
          <div class="tabela-wrap"><table class="tabela" style="min-width:0"><tbody>${data.map((c) => `<tr><td>${dataBR(c.data_compra)}</td><td>${esc(rotuloDoc(c.documento_tipo))}${c.documento_numero ? " nº " + esc(c.documento_numero) : ""} <span class="suave">#${c.numero}</span></td>
            <td><b>${brl(tot(c))}</b></td><td>${c.status === "cancelada" ? badgeCor("Cancelada", "#ff6b5e") : ""}</td></tr>`).join("")}</tbody></table></div>`
@@ -2418,7 +2458,7 @@ MODULOS.equipe = {
 };
 
 // Núcleo do sistema: login obrigatório, menu por perfil e navegação entre telas
-const VERSAO_SISTEMA = "2026.11.12-f";
+const VERSAO_SISTEMA = "2026.11.13-g";
 const TODOS = ["dono", "atendente", "mecanico", "contador"];
 // Itens com "filhos" viram grupos que abrem e fecham no menu lateral.
 const MENU = [
