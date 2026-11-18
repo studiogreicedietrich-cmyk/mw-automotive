@@ -127,7 +127,7 @@ tr.clicavel{cursor:pointer;transition:.12s}tr.clicavel:hover{background:rgba(252
 .btn-perigo{background:rgba(255,107,94,.14);color:var(--erro);box-shadow:none;border:1px solid rgba(255,107,94,.4)}.btn-perigo:hover{background:rgba(255,107,94,.25);box-shadow:none}
 .checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}
 .checks label{display:flex;align-items:center;gap:10px;margin:0;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);font-weight:500;color:var(--texto);cursor:pointer}
-.tabela.itens{min-width:880px}.itens td{padding:6px 8px}.itens input,.itens select{padding:8px 10px}.itens .num{width:92px}
+.tabela.itens{min-width:880px}.itens td{padding:6px 8px}.itens input,.itens select{padding:8px 10px}.itens .num{width:112px}
 .x-linha{background:none;border:0;color:var(--erro);font-size:1.5rem;line-height:1;cursor:pointer}
 .acoes-item{display:flex;gap:10px;margin:12px 0}.acoes-item .btn{padding:9px 14px}
 .totais{margin:18px 0 0 auto;max-width:360px;display:grid;gap:5px}.totais div{display:flex;justify-content:space-between}
@@ -522,7 +522,8 @@ function campoHtml(c, v, extra) {
     const ops = typeof c.opcoes === "function" ? c.opcoes(extra) : c.opcoes;
     ctl = `<select id="${id}"${c.busca ? " data-busca" : ""}><option value="">Selecione…</option>${ops.map(([a, b]) =>
       `<option value="${esc(a)}" ${String(a) === String(val) ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>`;
-  } else ctl = `<input id="${id}" type="${c.tipo || "text"}" value="${esc(val)}">`;
+  } else if (c.moeda) ctl = `<input id="${id}" type="text" inputmode="decimal" data-moeda value="${esc(val)}">`;
+  else ctl = `<input id="${id}" type="${c.tipo || "text"}" value="${esc(val)}">`;
   return `<div class="campo ${c.larga ? "larga" : ""}"><label for="${id}">${esc(c.t)}${c.req ? " *" : ""}</label>${ctl}</div>`;
 }
 function lerCampos(campos, raiz) {
@@ -710,7 +711,7 @@ MODULOS.os = {
         <div class="tabela-wrap"><table class="tabela itens"><thead><tr><th>Tipo</th><th>Do catálogo</th><th>Descrição</th><th>Qtd</th><th>Valor un.</th><th>Garantia</th><th>Total</th><th></th></tr></thead><tbody id="itens"></tbody></table></div>
         <div class="acoes-item"><button class="btn btn-sec" id="add-srv" type="button">+ Serviço</button><button class="btn btn-sec" id="add-prd" type="button">+ Peça</button><button class="btn btn-sec" id="add-pct" type="button">+ Pacote</button></div>
         <div class="grade-form"><div class="campo larga"><label>Observações</label><textarea id="f_obs" rows="2">${esc(o.observacoes)}</textarea></div>
-          <div class="campo"><label>Desconto (R$)</label><input id="f_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div>
+          <div class="campo"><label>Desconto (R$)</label><input id="f_desc" type="text" inputmode="decimal" data-moeda value="${o.desconto ?? 0}"></div>
           <div class="campo"><label>Motivo do desconto (aparece para o cliente)</label><input id="f_desc_motivo" placeholder="ex.: Pacote Troca de óleo" value="${esc(o.desconto_motivo)}"></div></div>
         <div class="totais"><div><span>Subtotal</span><span id="t-sub"></span></div><div class="geral"><span>Total</span><span id="t-total"></span></div>
           ${os ? `<div><span>Pago</span><span id="t-pago">${brl(o.pago)}</span></div><div><span>Saldo</span><span id="t-saldo"></span></div>` : ""}</div>
@@ -742,7 +743,7 @@ MODULOS.os = {
         $("#itens").innerHTML = itens.length ? itens.map((it, i) => `<tr data-i="${i}"><td>${it.tipo === "servico" ? "Serviço" : "Peça"}</td>
           <td><select data-c="pick" data-busca data-titulo="${it.tipo === "servico" ? "Buscar serviço" : "Buscar peça"}">${pick(it)}</select></td><td><input data-c="descricao" value="${esc(it.descricao)}"></td>
           <td><input class="num" data-c="quantidade" type="number" step="0.01" min="0.01" value="${it.quantidade}"></td>
-          <td><input class="num" data-c="valor_unitario" type="number" step="0.01" min="0" value="${it.valor_unitario}"></td>
+          <td><input class="num" data-c="valor_unitario" type="text" inputmode="decimal" data-moeda value="${it.valor_unitario}"></td>
           <td>${it.produto_id || it.servico_id ? `<span class="suave" title="Definida no cadastro">${garTxt(it)}</span>` : `<input class="num" data-c="garantia_dias" type="number" min="0" placeholder="dias" value="${it.garantia_dias ?? ""}">`}</td>
           <td class="tot"></td><td><button class="x-linha" data-c="rem" type="button" aria-label="Remover">×</button></td></tr>`).join("")
           : '<tr><td colspan="8" class="suave centro">Nenhum item ainda. Use os botões abaixo.</td></tr>';
@@ -783,7 +784,7 @@ MODULOS.os = {
       $("#itens").addEventListener("input", (e) => {
         const c = e.target.dataset.c, i = e.target.closest("tr")?.dataset.i;
         if (!c || c === "pick" || i == null) return;
-        itens[i][c] = e.target.type === "number" ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value;
+        itens[i][c] = (e.target.type === "number" || e.target.dataset.moeda !== undefined) ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value;
         calc();
       });
       $("#itens").addEventListener("change", (e) => {
@@ -1049,8 +1050,8 @@ const nBR = (x) => Number(x ?? 0).toLocaleString("pt-BR", { maximumFractionDigit
 const CAMPOS_PRODUTO = [
   { k: "codigo", t: "Código / SKU" }, { k: "nome", t: "Nome da peça", req: true },
   { k: "categoria", t: "Categoria" }, { k: "unidade", t: "Unidade", tipo: "select", opcoes: UNIDADES },
-  { k: "qtd_minima", t: "Estoque mínimo (gera alerta)", tipo: "number" }, { k: "custo", t: "Custo (R$)", tipo: "number" }, { k: "margem_percentual", t: "Margem (%)", tipo: "number" },
-  { k: "preco_venda", t: "Venda (R$)", tipo: "number" }, { k: "margem_auto", t: "Atualizar o preço quando o custo mudar?", tipo: "select", opcoes: [["false", "Não"], ["true", "Sim, manter a margem"]] }, { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
+  { k: "qtd_minima", t: "Estoque mínimo (gera alerta)", tipo: "number" }, { k: "custo", t: "Custo (R$)", tipo: "number", moeda: true }, { k: "margem_percentual", t: "Margem (%)", tipo: "number" },
+  { k: "preco_venda", t: "Venda (R$)", tipo: "number", moeda: true }, { k: "margem_auto", t: "Atualizar o preço quando o custo mudar?", tipo: "select", opcoes: [["false", "Não"], ["true", "Sim, manter a margem"]] }, { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
   { k: "garantia_dias", t: "Garantia da peça (dias)", tipo: "number" }, { k: "garantia_km", t: "Garantia da peça (km)", tipo: "number" },
 ];
 
@@ -1220,7 +1221,7 @@ const FORMAS = { dinheiro: "Dinheiro", pix: "Pix", cartao_debito: "Cartão de d�
 const CATS_DESP = ["Aluguel", "Água / Luz / Internet", "Salários", "Peças e materiais", "Ferramentas", "Impostos", "Marketing", "Outros"];
 const CAMPOS_DESP = [
   { k: "descricao", t: "Descrição", req: true, larga: true }, { k: "categoria", t: "Categoria", tipo: "select", opcoes: CATS_DESP.map((c) => [c, c]) },
-  { k: "valor", t: "Valor (R$)", tipo: "number", req: true }, { k: "vencimento", t: "Vencimento", tipo: "date", req: true },
+  { k: "valor", t: "Valor (R$)", tipo: "number", req: true, moeda: true }, { k: "vencimento", t: "Vencimento", tipo: "date", req: true },
   { k: "pago", t: "Situação", tipo: "select", opcoes: [["false", "A pagar"], ["true", "Paga"]] },
 ];
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -1235,7 +1236,7 @@ async function receberOS(o, depois, opts = {}) {
       const saldo = Math.max(o.total - o.pago, 0);
       const m = modal(opts.titulo || `Receber · OS #${o.numero}`, `${opts.aviso ? `<div class="aviso">${opts.aviso}</div>` : ""}<p class="suave">${esc(o.clientes?.nome)} · ${esc(o.veiculos?.placa || "")}</p>
         <div class="resumo-rec"><div><span>Total</span><b>${brl(o.total)}</b></div><div><span>Já pago</span><b>${brl(o.pago)}</b></div><div><span>Saldo</span><b class="destaque">${brl(saldo)}</b></div></div>
-        <div class="grade-form"><div class="campo"><label>Valor recebido (R$)</label><input id="r_valor" type="number" step="0.01" value="${saldo.toFixed(2)}"></div>
+        <div class="grade-form"><div class="campo"><label>Valor recebido (R$)</label><input id="r_valor" type="text" inputmode="decimal" data-moeda value="${saldo.toFixed(2)}"></div>
           <div class="campo"><label>Forma de pagamento</label><select id="r_forma">${Object.entries(FORMAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
           <div class="campo"><label>Data do recebimento</label><input id="r_data" type="date" value="${hojeISO()}"></div>
           <div class="campo"><label>Observação</label><input id="r_obs" placeholder="Opcional"></div></div>
@@ -1560,7 +1561,7 @@ MODULOS.servicos = crud({
     { t: "Lembrar o cliente", f: (l) => esc([l.lembrete_meses && l.lembrete_meses + " meses", l.lembrete_km && nBR(l.lembrete_km) + " km"].filter(Boolean).join(" ou ") || "—") },
   ],
   campos: [
-    { k: "nome", t: "Nome do serviço", req: true, larga: true }, { k: "preco_padrao", t: "Preço padrão (R$)", tipo: "number", req: true },
+    { k: "nome", t: "Nome do serviço", req: true, larga: true }, { k: "preco_padrao", t: "Preço padrão (R$)", tipo: "number", req: true, moeda: true },
     { k: "ativo", t: "Situação", tipo: "select", opcoes: [["true", "Ativo"], ["false", "Inativo"]] },
     { k: "garantia_dias", t: "Garantia (dias)", tipo: "number" }, { k: "garantia_km", t: "Garantia (km)", tipo: "number" },
     { k: "lembrete_meses", t: "Lembrar o cliente depois de (meses)", tipo: "number" }, { k: "lembrete_km", t: "...ou depois de (km)", tipo: "number" },
@@ -1661,6 +1662,7 @@ const SETA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 // Troca qualquer <select data-busca> por um botão que abre uma janela de pesquisa.
 // O <select> original continua existindo (escondido), então o resto do sistema não muda.
 function ativarBuscas(raiz) {
+  ativarMoeda(raiz);
   raiz.querySelectorAll("select[data-busca]:not([data-ativo])").forEach((sel) => {
     sel.dataset.ativo = "1"; sel.classList.add("sel-oculto");
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "busca-btn"; sel.after(btn);
@@ -1777,8 +1779,8 @@ const comprasUI = {
           <div class="acoes-item"><button class="btn btn-sec" id="cp_add" type="button">+ Adicionar item</button></div>`
         : `<div class="tabela-wrap"><table class="tabela" style="min-width:520px"><thead><tr><th>Produto</th><th>Qtd</th><th>Custo un.</th><th>Total</th></tr></thead><tbody>${fixos.map((i) => `<tr><td>${esc(i.descricao)}</td><td>${nBR(i.quantidade)}</td><td>${brl(i.custo_unitario)}</td><td>${brl(i.quantidade * i.custo_unitario)}</td></tr>`).join("")}</tbody></table></div>
           <p class="suave" style="margin-top:6px">Os itens não são editados depois de lançados (mexem no estoque). Para corrigir, cancele a compra e lance de novo.</p>`}
-        <div class="grade-form" style="margin-top:12px"><div class="campo"><label for="cp_frete">Frete (R$)</label><input id="cp_frete" type="number" step="0.01" min="0" value="${o.frete ?? 0}"></div>
-          <div class="campo"><label for="cp_desc">Desconto (R$)</label><input id="cp_desc" type="number" step="0.01" min="0" value="${o.desconto ?? 0}"></div></div>
+        <div class="grade-form" style="margin-top:12px"><div class="campo"><label for="cp_frete">Frete (R$)</label><input id="cp_frete" type="text" inputmode="decimal" data-moeda value="${o.frete ?? 0}"></div>
+          <div class="campo"><label for="cp_desc">Desconto (R$)</label><input id="cp_desc" type="text" inputmode="decimal" data-moeda value="${o.desconto ?? 0}"></div></div>
         <div class="totais"><div><span>Itens</span><span id="cp_sub"></span></div><div class="geral"><span>Total da compra</span><span id="cp_total"></span></div></div>
         </div><div data-aba="fin">${novo && dono ? `<h4>Financeiro</h4><div class="grade-form"><div class="campo"><label for="cp_fin">Lançar como despesa?</label><select id="cp_fin"><option value="nao">Não lançar</option><option value="paga">Sim, já paga</option><option value="pagar">Sim, a pagar</option></select></div>
           <div class="campo" id="cp_venc_box" hidden><label for="cp_venc">Vencimento</label><input id="cp_venc" type="date"></div></div>` : ""}
@@ -1800,16 +1802,16 @@ const comprasUI = {
       if (novo) {
         const linhasItens = () => {
           $("#cp_itens").innerHTML = itens.map((it, i) => `<tr data-i="${i}"><td><select data-c="pick" data-busca data-titulo="Buscar produto"><option value="">— Escolha o produto —</option><option value="novo" ${it.novo ? "selected" : ""}>➕ Cadastrar produto novo</option>${produtos.map((p) => `<option value="${p.id}" data-sub="custo ${brl(p.custo)}" ${it.produto_id === p.id ? "selected" : ""}>${esc((p.codigo ? p.codigo + " · " : "") + p.nome)}</option>`).join("")}</select>
-            ${it.novo ? `<div class="novo-prod"><input data-c="nome" placeholder="Nome do produto novo *" value="${esc(it.nome)}"><input data-c="codigo" placeholder="Código" value="${esc(it.codigo)}"><input class="num" data-c="preco_venda" type="number" step="0.01" min="0" placeholder="Venda R$" value="${it.preco_venda}"></div>` : ""}</td>
+            ${it.novo ? `<div class="novo-prod"><input data-c="nome" placeholder="Nome do produto novo *" value="${esc(it.nome)}"><input data-c="codigo" placeholder="Código" value="${esc(it.codigo)}"><input class="num" data-c="preco_venda" type="text" inputmode="decimal" data-moeda placeholder="Venda R$" value="${it.preco_venda}"></div>` : ""}</td>
             <td><input class="num" data-c="quantidade" type="number" step="0.01" min="0.01" value="${it.quantidade}"></td>
-            <td><input class="num" data-c="custo_unitario" type="number" step="0.01" min="0" value="${it.custo_unitario}"></td><td class="tot"></td>
+            <td><input class="num" data-c="custo_unitario" type="text" inputmode="decimal" data-moeda value="${it.custo_unitario}"></td><td class="tot"></td>
             <td><button class="x-linha" data-c="rem" type="button" aria-label="Remover">×</button></td></tr>`).join("");
           ativarBuscas($("#cp_itens")); calc();
         };
         $("#cp_add").onclick = () => { itens.push({ produto_id: "", novo: false, nome: "", codigo: "", preco_venda: "", quantidade: 1, custo_unitario: 0 }); linhasItens(); };
         $("#cp_itens").addEventListener("input", (e) => {
           const c2 = e.target.dataset.c, i = e.target.closest("tr")?.dataset.i; if (!c2 || c2 === "pick" || c2 === "rem" || i == null) return;
-          itens[i][c2] = e.target.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value; calc();
+          itens[i][c2] = (e.target.type === "number" || e.target.dataset.moeda !== undefined) ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value; calc();
         });
         $("#cp_itens").addEventListener("change", (e) => {
           if (e.target.dataset.c !== "pick") return;
@@ -2247,6 +2249,42 @@ function abaExtra(m, rotulo) {
   return extra;
 }
 
+// ===================== CAMPOS DE DINHEIRO (R$ 1.234,56) =====================
+// Entende "100", "100,5", "1.234,56", "R$ 2.500" e "6.75" (ponto decimal vindo do banco).
+function lerMoeda(txt) {
+  let t = String(txt ?? "").replace(/[^\d.,]/g, "");
+  if (!t) return null;
+  const iv = t.lastIndexOf(",");
+  if (iv >= 0) t = t.slice(0, iv).replace(/[.,]/g, "") + "." + t.slice(iv + 1).replace(/[.,]/g, "");   // vírgula = decimal; pontos = milhar
+  else if (t.includes(".")) { const p = t.split("."); if (p.length > 2 || (p[1].length === 3 && p[0].length <= 3 && p[0] !== "0")) t = p.join(""); }
+  const n = Number(t);
+  return isNaN(n) ? null : n;
+}
+const fmtMoeda = (n) => Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Todo <input data-moeda> passa a mostrar "1.234,56", mas "value" continua devolvendo "1234.56" (número normal),
+// então o resto do sistema não precisa saber da máscara.
+function ativarMoeda(raiz) {
+  const nativo = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  raiz.querySelectorAll("input[data-moeda]:not([data-moeda-ok])").forEach((el) => {
+    el.dataset.moedaOk = "1"; el.setAttribute("inputmode", "decimal"); el.setAttribute("autocomplete", "off");
+    const mostrar = (n, editando) => nativo.set.call(el, n == null ? "" : editando ? String(n).replace(".", ",") : fmtMoeda(n));
+    const inicial = nativo.get.call(el), n0 = /^-?\d+(\.\d+)?$/.test(inicial) ? Number(inicial) : lerMoeda(inicial);
+    Object.defineProperty(el, "value", {
+      configurable: true,
+      get() { const n = lerMoeda(nativo.get.call(el)); return n == null ? "" : String(Math.round(n * 100) / 100); },
+      set(v) { const n = typeof v === "number" ? v : v === "" || v == null ? null : /^\d+(\.\d+)?$/.test(String(v)) ? Number(v) : lerMoeda(v); mostrar(n, el === document.activeElement); },
+    });
+    mostrar(n0, false);
+    el.addEventListener("input", () => { const t = nativo.get.call(el), limpo = t.replace(/[^\d.,]/g, ""); if (limpo !== t) nativo.set.call(el, limpo); });
+    let clicando = false;   // no 1º clique, o navegador solta a seleção no "mouseup": evitamos isso
+    el.addEventListener("mousedown", () => { clicando = document.activeElement !== el; });
+    el.addEventListener("mouseup", (e) => { if (clicando) { e.preventDefault(); clicando = false; } });
+    el.addEventListener("focus", () => { mostrar(lerMoeda(nativo.get.call(el)), true); setTimeout(() => { if (document.activeElement === el) el.select(); }, 0); });
+    el.addEventListener("blur", () => mostrar(lerMoeda(nativo.get.call(el)), false));
+  });
+}
+
 // Telas do menu lateral: Estoque > Peças / Compras e Financeiro > Resumo / A receber / Recebimentos / Despesas
 MODULOS.pecas = estoquePecas;
 MODULOS.compras = comprasUI;
@@ -2458,7 +2496,7 @@ MODULOS.equipe = {
 };
 
 // Núcleo do sistema: login obrigatório, menu por perfil e navegação entre telas
-const VERSAO_SISTEMA = "2026.11.13-g";
+const VERSAO_SISTEMA = "2026.11.14-h";
 const TODOS = ["dono", "atendente", "mecanico", "contador"];
 // Itens com "filhos" viram grupos que abrem e fecham no menu lateral.
 const MENU = [
